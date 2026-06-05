@@ -27,6 +27,7 @@ type Service struct {
 
 	bybitClient  *bybit.Client
 	stream       *stream.Manager
+	handlers     *stream.Handlers
 	backfill     *poll.Backfill
 	lsRatioPoller  *poll.LSRatioPoller
 	recoverySched  *recovery.Scheduler
@@ -74,6 +75,7 @@ func NewService(
 		metrics:        m,
 		bybitClient:    bybitClient,
 		stream:         mgr,
+		handlers:       handlers,
 		backfill:       bf,
 		lsRatioPoller:  lsPoller,
 		recoverySched:  recSched,
@@ -177,14 +179,19 @@ func (s *Service) runPoller(ctx context.Context, p poll.Poller) {
 }
 
 func (s *Service) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	statsTicker := time.NewTicker(5 * time.Minute)
+	defer heartbeatTicker.Stop()
+	defer statsTicker.Stop()
+
+	// Log initial stats when collector starts
+	s.handlers.LogStats()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-heartbeatTicker.C:
 			if s.healthStore != nil {
 				status := "healthy"
 				if !s.stream.IsConnected() {
@@ -192,6 +199,8 @@ func (s *Service) heartbeatLoop(ctx context.Context) {
 				}
 				_ = s.healthStore.Heartbeat(ctx, "collector", status)
 			}
+		case <-statsTicker.C:
+			s.handlers.LogStats()
 		}
 	}
 }

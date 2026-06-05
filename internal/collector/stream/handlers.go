@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/avav/ai_trading_v1/internal/collector/mapper"
@@ -20,6 +21,13 @@ type Handlers struct {
 	metrics        *metrics.CollectorMetrics
 	logger         *slog.Logger
 	ctx            context.Context
+
+	klineStored atomic.Int64
+	tickerCount atomic.Int64
+	oiStored    atomic.Int64
+	fundingStored atomic.Int64
+	liqStored   atomic.Int64
+	errCount    atomic.Int64
 }
 
 func NewHandlers(
@@ -77,6 +85,17 @@ func (h *Handlers) HandleMessage(msg []byte) {
 	}
 }
 
+func (h *Handlers) LogStats() {
+	h.logger.Info("stats",
+		"kline_stored", h.klineStored.Load(),
+		"ticker_received", h.tickerCount.Load(),
+		"oi_stored", h.oiStored.Load(),
+		"funding_stored", h.fundingStored.Load(),
+		"liq_stored", h.liqStored.Load(),
+		"errors", h.errCount.Load(),
+	)
+}
+
 func (h *Handlers) handleKline(data json.RawMessage, topic string) {
 	var klines []mapper.WSKlineData
 	if err := json.Unmarshal(data, &klines); err != nil {
@@ -96,11 +115,13 @@ func (h *Handlers) handleKline(data json.RawMessage, topic string) {
 		}
 		if err := h.candleStore.Insert(h.ctx, &candle); err != nil {
 			h.logger.Error("store candle", "error", err, "symbol", candle.Symbol)
+			h.errCount.Add(1)
 			if h.metrics != nil {
 				h.metrics.ErrorsTotal.WithLabelValues("store_candle").Inc()
 			}
 			continue
 		}
+		h.klineStored.Add(1)
 		if h.metrics != nil {
 			h.metrics.StoredTotal.WithLabelValues("candles").Inc()
 		}
@@ -111,8 +132,10 @@ func (h *Handlers) handleTicker(data json.RawMessage, topic string) {
 	var ticker mapper.WSTickerData
 	if err := json.Unmarshal(data, &ticker); err != nil {
 		h.logger.Error("parse ticker data", "error", err)
+		h.errCount.Add(1)
 		return
 	}
+	h.tickerCount.Add(1)
 
 	now := time.Now()
 
@@ -121,6 +144,7 @@ func (h *Handlers) handleTicker(data json.RawMessage, topic string) {
 		if err := h.orderFlowStore.InsertOpenInterest(h.ctx, &oi); err != nil {
 			h.logger.Error("store OI", "error", err)
 		} else {
+			h.oiStored.Add(1)
 			if h.metrics != nil {
 				h.metrics.StoredTotal.WithLabelValues("open_interest").Inc()
 			}
@@ -132,6 +156,7 @@ func (h *Handlers) handleTicker(data json.RawMessage, topic string) {
 		if err := h.orderFlowStore.InsertFundingRate(h.ctx, &fr); err != nil {
 			h.logger.Error("store funding rate", "error", err)
 		} else {
+			h.fundingStored.Add(1)
 			if h.metrics != nil {
 				h.metrics.StoredTotal.WithLabelValues("funding_rate").Inc()
 			}
@@ -154,8 +179,10 @@ func (h *Handlers) handleLiquidation(data json.RawMessage, topic string) {
 		}
 		if err := h.orderFlowStore.InsertLiquidation(h.ctx, &l); err != nil {
 			h.logger.Error("store liquidation", "error", err)
+			h.errCount.Add(1)
 			continue
 		}
+		h.liqStored.Add(1)
 		if h.metrics != nil {
 			h.metrics.StoredTotal.WithLabelValues("liquidations").Inc()
 		}
