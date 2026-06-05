@@ -1,0 +1,279 @@
+{
+  "GeneratedAt": "now",
+  "Symbols": "BTCUSDT, ETHUSDT, SOLUSDT",
+  "Timeframes": "15m, 1h",
+  "Features": [
+    {
+      "Name": "ADX14",
+      "Metrics": {
+        "composite_score": 0.8,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "ATR14",
+      "Metrics": {
+        "composite_score": 0.84,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "EMA20",
+      "Metrics": {
+        "composite_score": 1,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "EMA200",
+      "Metrics": {
+        "composite_score": 0.92,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "EMA50",
+      "Metrics": {
+        "composite_score": 0.96,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "FundingRate",
+      "Metrics": {
+        "composite_score": 0.43999999999999995,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "FundingZScore30",
+      "Metrics": {
+        "composite_score": 0.4,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "LSRatioNormalized",
+      "Metrics": {
+        "composite_score": 0.3199999999999999,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "LSRatioRaw",
+      "Metrics": {
+        "composite_score": 0.35999999999999993,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "LiqImbalance",
+      "Metrics": {
+        "composite_score": 0.19999999999999996,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "LiqLongUSD",
+      "Metrics": {
+        "composite_score": 0.2800000000000001,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "LiqShortUSD",
+      "Metrics": {
+        "composite_score": 0.24,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "OIDelta12Pct",
+      "Metrics": {
+        "composite_score": 0.52,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "OIDelta1Pct",
+      "Metrics": {
+        "composite_score": 0.6000000000000001,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "OIDelta4Pct",
+      "Metrics": {
+        "composite_score": 0.5600000000000002,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "OIZScore30",
+      "Metrics": {
+        "composite_score": 0.48,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "PriceAboveEMA20",
+      "Metrics": {
+        "composite_score": 0.7199999999999999,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "PriceAboveEMA200",
+      "Metrics": {
+        "composite_score": 0.6400000000000001,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "PriceAboveEMA50",
+      "Metrics": {
+        "composite_score": 0.6799999999999998,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "RSI14",
+      "Metrics": {
+        "composite_score": 0.88,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "Return1",
+      "Metrics": {
+        "composite_score": 0.16000000000000006,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "Return12",
+      "Metrics": {
+        "composite_score": 0.07999999999999996,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "Return4",
+      "Metrics": {
+        "composite_score": 0.12,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "Volatility14",
+      "Metrics": {
+        "composite_score": 0.040000000000000036,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "Volatility50",
+      "Metrics": {
+        "composite_score": 0,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    },
+    {
+      "Name": "VolumeEMA20",
+      "Metrics": {
+        "composite_score": 0.7600000000000002,
+        "decay_avg": 0,
+        "decay_peak": 0,
+        "decay_persistence": 0,
+        "decay_rate": 0
+      }
+    }
+  ],
+  "TopFeatures": [
+    "EMA20",
+    "EMA50",
+    "EMA200",
+    "RSI14",
+    "ATR14"
+  ],
+  "Summary": {
+    "TotalFeatures": 26,
+    "TotalMetrics": 780,
+    "Top3": "1. EMA20, 2. EMA50, 3. EMA200"
+  }
+}
