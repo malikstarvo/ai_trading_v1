@@ -36,8 +36,11 @@ func main() {
 	healthStore := db.NewCollectorHealthStore(pool)
 
 	collectorCfg := collector.DefaultConfig()
-	collectorCfg.Testnet = os.Getenv("COLLECTOR_TESTNET") != "false"
-
+	collectorCfg.Testnet = os.Getenv("COLLECTOR_TESTNET") == "true"
+	if collectorCfg.Testnet {
+		collectorCfg.WSURL = "wss://stream-testnet.bybit.com/v5/public/linear"
+		collectorCfg.BaseURL = "https://api-testnet.bybit.com"
+	}
 	if u := os.Getenv("COLLECTOR_WS_URL"); u != "" {
 		collectorCfg.WSURL = u
 	}
@@ -45,6 +48,7 @@ func main() {
 		collectorCfg.BaseURL = u
 	}
 	collectorCfg.InsecureSkipVerify = os.Getenv("COLLECTOR_INSECURE_SKIP_VERIFY") == "true"
+	collectorCfg.ProxyURL = os.Getenv("COLLECTOR_PROXY_URL")
 
 	reg := prometheus.NewRegistry()
 	m := metrics.New(reg)

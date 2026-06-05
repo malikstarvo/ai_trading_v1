@@ -3,7 +3,9 @@ package collector
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,10 +23,11 @@ var ErrAlreadyRunning = errors.New("collector already running")
 type Service struct {
 	cfg    Config
 	log    *slog.Logger
-	metrics *metrics.CollectorMetrics
+	metrics  *metrics.CollectorMetrics
 
-	stream         *stream.Manager
-	backfill       *poll.Backfill
+	bybitClient  *bybit.Client
+	stream       *stream.Manager
+	backfill     *poll.Backfill
 	lsRatioPoller  *poll.LSRatioPoller
 	recoverySched  *recovery.Scheduler
 
@@ -48,14 +51,14 @@ func NewService(
 	log = log.With("module", "collector")
 
 	rl := bybit.NewTokenBucket(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
-	bybitClient := bybit.NewClient(cfg.BaseURL, rl, log, cfg.InsecureSkipVerify)
+	bybitClient := bybit.NewClient(cfg.BaseURL, rl, log, cfg.InsecureSkipVerify, cfg.ProxyURL)
 
 	validator := validate.New(m)
 
 	ctx := context.Background()
 
 	handlers := stream.NewHandlers(ctx, candleStore, orderFlowStore, validator, m, log)
-	wsConn := stream.NewWSConn(cfg.WSURL, log, cfg.InsecureSkipVerify)
+	wsConn := stream.NewWSConn(cfg.WSURL, log, cfg.InsecureSkipVerify, cfg.ProxyURL)
 	mgr := stream.NewManager(wsConn, handlers, m, log)
 
 	bf := poll.NewBackfill(bybitClient, cfg.Symbols, candleStore, cfg.BackfillDays, log)
@@ -69,6 +72,7 @@ func NewService(
 		cfg:            cfg,
 		log:            log,
 		metrics:        m,
+		bybitClient:    bybitClient,
 		stream:         mgr,
 		backfill:       bf,
 		lsRatioPoller:  lsPoller,
@@ -194,4 +198,28 @@ func (s *Service) heartbeatLoop(ctx context.Context) {
 
 func (s *Service) IsConnected() bool {
 	return s.stream.IsConnected()
+}
+
+func (s *Service) resolveSymbols(ctx context.Context) error {
+	var resolved []string
+	for _, sym := range s.cfg.Symbols {
+		_, err := s.bybitClient.GetKlines(ctx, sym, "15", 0, 1, 1)
+		if err != nil {
+			if strings.Contains(err.Error(), "10001") {
+				s.log.Warn("symbol not available on exchange, skipping", "symbol", sym)
+				continue
+			}
+			return fmt.Errorf("check symbol %s: %w", sym, err)
+		}
+		resolved = append(resolved, sym)
+	}
+
+	if len(resolved) == 0 {
+		return fmt.Errorf("no configured symbols are available (from config: %v)", s.cfg.Symbols)
+	}
+
+	original := s.cfg.Symbols
+	s.cfg.Symbols = resolved
+	s.log.Info("symbols resolved", "resolved", resolved, "from_config", original)
+	return nil
 }

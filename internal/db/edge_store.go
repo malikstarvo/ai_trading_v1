@@ -101,7 +101,7 @@ func (s *EdgeStore) RollingCorrelation(ctx context.Context, featureCol, labelCol
 	sql := fmt.Sprintf(`
 		SELECT
 			fv.ts,
-			CORR(fv.%s, tl.%s) OVER (ORDER BY fv.ts ROWS BETWEEN %d PRECEDING AND CURRENT ROW) AS rolling_corr
+			COALESCE(CORR(fv.%s, tl.%s) OVER (ORDER BY fv.ts ROWS BETWEEN %d PRECEDING AND CURRENT ROW), 0) AS rolling_corr
 		FROM feature_values fv
 		JOIN training_labels tl ON fv.symbol = tl.symbol AND fv.timeframe = tl.timeframe AND fv.ts = tl.ts AND fv.feature_set_id = tl.feature_set_id
 		WHERE fv.symbol = $1 AND fv.timeframe = $2 AND fv.feature_set_id = $3

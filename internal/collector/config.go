@@ -5,6 +5,7 @@ import "time"
 type Config struct {
 	WSURL              string   `mapstructure:"ws_url"`
 	BaseURL            string   `mapstructure:"base_url"`
+	ProxyURL           string   `mapstructure:"proxy_url"`
 	Symbols            []string `mapstructure:"symbols"`
 	Testnet            bool     `mapstructure:"testnet"`
 	InsecureSkipVerify bool     `mapstructure:"insecure_skip_verify"`
@@ -26,18 +27,18 @@ type Config struct {
 
 func DefaultConfig() Config {
 	cfg := Config{
-		WSURL:           "wss://stream-testnet.bybit.com/v5/public/linear",
-		BaseURL:         "https://api-testnet.bybit.com",
-		Symbols:         []string{"BTCUSDT", "ETHUSDT", "SOLUSDT"},
-		Testnet:            true,
+		WSURL:              "wss://stream.bybit.com/v5/public/linear",
+		BaseURL:            "https://api.bybit.com",
+		Symbols:            []string{"BTCUSDT", "ETHUSDT", "SOLUSDT"},
+		Testnet:            false,
 		InsecureSkipVerify: false,
 		BackfillDays:       30,
-		BatchInsertSize: 50,
+		BatchInsertSize:    50,
 	}
 	cfg.Recovery.Enabled = true
 	cfg.Recovery.CheckInterval = 5 * time.Minute
 	cfg.Recovery.GapBars = 2
-	cfg.RateLimit.RequestsPerSecond = 10
-	cfg.RateLimit.Burst = 5
+	cfg.RateLimit.RequestsPerSecond = 15
+	cfg.RateLimit.Burst = 8
 	return cfg
 }

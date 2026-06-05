@@ -54,7 +54,7 @@ func (s *CandleStore) InsertBatch(ctx context.Context, candles []model.Candle) e
 func (s *CandleStore) LatestTime(ctx context.Context, symbol string, timeframe string) (time.Time, error) {
 	var t time.Time
 	err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(MAX(time), '1970-01-01'::timestamptz)
+		SELECT MAX(time)
 		FROM candles WHERE symbol = $1 AND timeframe = $2
 	`, symbol, timeframe).Scan(&t)
 	return t, err

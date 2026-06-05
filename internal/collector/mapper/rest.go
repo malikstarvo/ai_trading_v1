@@ -16,8 +16,9 @@ func RestToOI(item bybit.OIItem, symbol string) model.OIRecord {
 }
 
 func RestToLSRatio(item bybit.LSRatioItem, symbol, period string) model.LSRatio {
+	ts := parseInt64(item.Timestamp)
 	return model.LSRatio{
-		Time:      time.UnixMilli(item.Timestamp),
+		Time:      time.UnixMilli(ts),
 		Symbol:    symbol,
 		Period:    period,
 		BuyRatio:  parseFloat(item.BuyRatio),

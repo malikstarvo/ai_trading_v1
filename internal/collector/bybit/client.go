@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -20,8 +21,24 @@ type Client struct {
 	logger             *slog.Logger
 }
 
-func NewClient(baseURL string, rateLimiter RateLimiter, logger *slog.Logger, insecureSkipVerify bool) *Client {
-	transport := &http.Transport{}
+func NewClient(baseURL string, rateLimiter RateLimiter, logger *slog.Logger, insecureSkipVerify bool, proxyURL string) *Client {
+	transport := &http.Transport{
+		ForceAttemptHTTP2: false,
+	}
+	if proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+		}
+	} else {
+		resolver := &net.Resolver{
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{}
+				return d.DialContext(ctx, "udp", "1.1.1.1:53")
+			},
+		}
+		dialer := &net.Dialer{Resolver: resolver}
+		transport.DialContext = dialer.DialContext
+	}
 	if insecureSkipVerify {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -136,7 +153,29 @@ func (c *Client) LatestCandleTime(ctx context.Context, symbol, interval string) 
 	if len(resp.List) == 0 {
 		return time.Time{}, fmt.Errorf("no candles returned for %s %s", symbol, interval)
 	}
-	return time.UnixMilli(resp.List[0].Start), nil
+	start, _ := strconv.ParseInt(resp.List[0][0], 10, 64)
+	return time.UnixMilli(start), nil
+}
+
+func (c *Client) GetInstruments(ctx context.Context, category string, limit int) ([]string, error) {
+	params := url.Values{}
+	params.Set("category", category)
+	if limit > 0 {
+		params.Set("limit", strconv.Itoa(limit))
+	}
+	resp, err := c.doGET(ctx, "/v5/market/instruments-info", params)
+	if err != nil {
+		return nil, fmt.Errorf("instruments: %w", err)
+	}
+	var result InstrumentResponse
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal instruments: %w", err)
+	}
+	symbols := make([]string, len(result.List))
+	for i, item := range result.List {
+		symbols[i] = item.Symbol
+	}
+	return symbols, nil
 }
 
 func (c *Client) doGET(ctx context.Context, path string, params url.Values) (*APIResponse, error) {
@@ -153,6 +192,9 @@ func (c *Client) doGET(ctx context.Context, path string, params url.Values) (*AP
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
 	c.logger.Debug("rest request", "url", u)
 

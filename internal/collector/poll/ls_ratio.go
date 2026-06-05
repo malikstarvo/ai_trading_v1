@@ -52,7 +52,8 @@ func (p *LSRatioPoller) Poll(ctx context.Context) error {
 	for _, symbol := range p.symbols {
 		resp, err := p.client.GetLongShortRatio(ctx, symbol, "15min", 500)
 		if err != nil {
-			return fmt.Errorf("%s %s: %w", p.Name(), symbol, err)
+			p.logger.Error("poll failed", "symbol", symbol, "error", err)
+			continue
 		}
 		for _, item := range resp.List {
 			ls := mapper.RestToLSRatio(item, symbol, "15min")

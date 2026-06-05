@@ -108,31 +108,30 @@ func (h *Handlers) handleKline(data json.RawMessage, topic string) {
 }
 
 func (h *Handlers) handleTicker(data json.RawMessage, topic string) {
-	var tickers []mapper.WSTickerData
-	if err := json.Unmarshal(data, &tickers); err != nil {
+	var ticker mapper.WSTickerData
+	if err := json.Unmarshal(data, &ticker); err != nil {
 		h.logger.Error("parse ticker data", "error", err)
 		return
 	}
 
 	now := time.Now()
-	for _, t := range tickers {
-		oi := mapper.TickerToOI(t, now)
-		if err := h.validator.ValidateOI(&oi); err == nil {
-			if err := h.orderFlowStore.InsertOpenInterest(h.ctx, &oi); err != nil {
-				h.logger.Error("store OI", "error", err)
-				continue
-			}
+
+	oi := mapper.TickerToOI(ticker, now)
+	if err := h.validator.ValidateOI(&oi); err == nil {
+		if err := h.orderFlowStore.InsertOpenInterest(h.ctx, &oi); err != nil {
+			h.logger.Error("store OI", "error", err)
+		} else {
 			if h.metrics != nil {
 				h.metrics.StoredTotal.WithLabelValues("open_interest").Inc()
 			}
 		}
+	}
 
-		fr := mapper.TickerToFundingRate(t, now)
-		if err := h.validator.ValidateFunding(&fr); err == nil {
-			if err := h.orderFlowStore.InsertFundingRate(h.ctx, &fr); err != nil {
-				h.logger.Error("store funding rate", "error", err)
-				continue
-			}
+	fr := mapper.TickerToFundingRate(ticker, now)
+	if err := h.validator.ValidateFunding(&fr); err == nil {
+		if err := h.orderFlowStore.InsertFundingRate(h.ctx, &fr); err != nil {
+			h.logger.Error("store funding rate", "error", err)
+		} else {
 			if h.metrics != nil {
 				h.metrics.StoredTotal.WithLabelValues("funding_rate").Inc()
 			}

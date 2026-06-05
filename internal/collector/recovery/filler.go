@@ -2,7 +2,6 @@ package recovery
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -50,14 +49,16 @@ func (f *Filler) Fill(ctx context.Context, report GapReport) error {
 	for cursor < end {
 		resp, err := f.bybitClient.GetKlines(ctx, report.Symbol, bybitInterval, cursor, end, 200)
 		if err != nil {
-			return fmt.Errorf("fetch gap: %w", err)
+			f.logger.Warn("skip gap fill", "symbol", report.Symbol, "error", err)
+			return nil
 		}
 		if len(resp.List) == 0 {
 			break
 		}
 		candles := mapper.RestKlinesToCandles(resp, report.Symbol, report.Timeframe)
 		if err := f.candleStore.InsertBatch(ctx, candles); err != nil {
-			return fmt.Errorf("store gap: %w", err)
+			f.logger.Warn("skip gap fill store", "symbol", report.Symbol, "error", err)
+			return nil
 		}
 		total += len(candles)
 		if len(candles) < 200 {

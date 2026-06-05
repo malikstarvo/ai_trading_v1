@@ -9,19 +9,9 @@ type APIResponse struct {
 	Time    int64           `json:"time"`
 }
 
-type KlineItem struct {
-	Start     int64  `json:"start"`
-	End       int64  `json:"end"`
-	Interval  string `json:"interval"`
-	Open      string `json:"open"`
-	Close     string `json:"close"`
-	High      string `json:"high"`
-	Low       string `json:"low"`
-	Volume    string `json:"volume"`
-	Turnover  string `json:"turnover"`
-	Confirm   bool   `json:"confirm"`
-	Timestamp int64  `json:"timestamp"`
-}
+// KlineItem is a positional string array from the REST kline API.
+// Index: 0=startTime, 1=openPrice, 2=highPrice, 3=lowPrice, 4=closePrice, 5=volume, 6=turnover
+type KlineItem []string
 
 type KlineResponse struct {
 	Category string      `json:"category"`
@@ -43,7 +33,7 @@ type OIResponse struct {
 type LSRatioItem struct {
 	BuyRatio   string `json:"buyRatio"`
 	SellRatio  string `json:"sellRatio"`
-	Timestamp  int64  `json:"timestamp"`
+	Timestamp  string `json:"timestamp"`
 }
 
 type LSRatioResponse struct {
@@ -60,4 +50,13 @@ type FundingRateItem struct {
 type FundingRateResponse struct {
 	Category string            `json:"category"`
 	List     []FundingRateItem `json:"list"`
+}
+
+type InstrumentItem struct {
+	Symbol string `json:"symbol"`
+}
+
+type InstrumentResponse struct {
+	Category string           `json:"category"`
+	List     []InstrumentItem `json:"list"`
 }

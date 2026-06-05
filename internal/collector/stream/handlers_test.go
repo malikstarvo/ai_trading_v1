@@ -101,14 +101,14 @@ func TestHandleTicker_OIStored(t *testing.T) {
 	msg := `{
 		"topic": "tickers.BTCUSDT",
 		"type": "snapshot",
-		"data": [{
+		"data": {
 			"symbol": "BTCUSDT",
 			"lastPrice": "50000",
 			"openInterest": "150000.5",
 			"openInterestValue": "7500000000",
 			"fundingRate": "0.0001",
 			"nextFundingTime": "1672329600000"
-		}],
+		},
 		"ts": 1672324988882
 	}`
 
@@ -131,14 +131,14 @@ func TestHandleTicker_FundingRateStored(t *testing.T) {
 	msg := `{
 		"topic": "tickers.ETHUSDT",
 		"type": "snapshot",
-		"data": [{
+		"data": {
 			"symbol": "ETHUSDT",
 			"lastPrice": "3500",
 			"openInterest": "500000",
 			"openInterestValue": "1750000000",
 			"fundingRate": "0.0002",
 			"nextFundingTime": "1672329600000"
-		}],
+		},
 		"ts": 1672324988882
 	}`
 

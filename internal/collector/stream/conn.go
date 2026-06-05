@@ -4,10 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/proxy"
 )
 
 type Conn interface {
@@ -27,15 +31,31 @@ type WSConn struct {
 	logger *slog.Logger
 }
 
-func NewWSConn(url string, logger *slog.Logger, insecureSkipVerify bool) *WSConn {
+func NewWSConn(wsURL string, logger *slog.Logger, insecureSkipVerify bool, proxyURL string) *WSConn {
 	dialer := &websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
+	}
+	if proxyURL != "" {
+		if u, err := url.Parse(proxyURL); err == nil {
+			switch u.Scheme {
+			case "socks5":
+				if d, err := proxy.FromURL(u, &net.Dialer{}); err == nil {
+					if cd, ok := d.(proxy.ContextDialer); ok {
+						dialer.NetDialContext = cd.DialContext
+					} else {
+						dialer.NetDial = d.Dial
+					}
+				}
+			default:
+				dialer.Proxy = http.ProxyURL(u)
+			}
+		}
 	}
 	if insecureSkipVerify {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	return &WSConn{
-		url:    url,
+		url:    wsURL,
 		dialer: dialer,
 		logger: logger.With("module", "ws_conn"),
 	}

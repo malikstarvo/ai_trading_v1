@@ -36,15 +36,16 @@ func WSKlineToCandle(item WSKlineData, symbol string, timeframe string) model.Ca
 }
 
 func RestKlineToCandle(item bybit.KlineItem, symbol string, timeframe string) model.Candle {
+	start := parseInt64(item[0])
 	return model.Candle{
-		Time:      time.UnixMilli(item.Start),
+		Time:      time.UnixMilli(start),
 		Symbol:    symbol,
 		Timeframe: timeframe,
-		Open:      parseFloat(item.Open),
-		High:      parseFloat(item.High),
-		Low:       parseFloat(item.Low),
-		Close:     parseFloat(item.Close),
-		Volume:    parseFloat(item.Volume),
+		Open:      parseFloat(item[1]),
+		High:      parseFloat(item[2]),
+		Low:       parseFloat(item[3]),
+		Close:     parseFloat(item[4]),
+		Volume:    parseFloat(item[5]),
 	}
 }
 
@@ -58,5 +59,10 @@ func RestKlinesToCandles(resp *bybit.KlineResponse, symbol string, timeframe str
 
 func parseFloat(s string) float64 {
 	v, _ := strconv.ParseFloat(s, 64)
+	return v
+}
+
+func parseInt64(s string) int64 {
+	v, _ := strconv.ParseInt(s, 10, 64)
 	return v
 }
