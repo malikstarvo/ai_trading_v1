@@ -69,8 +69,9 @@ def _median_impute(df, cols):
     return df
 
 
-def prepare_training_data(df, horizon):
+def prepare_training_data(df, horizon, feature_columns=None):
     success_col, _ = HORIZON_COLUMNS[horizon]
+    cols = feature_columns if feature_columns is not None else FEATURE_COLUMNS
 
     feature_rows = []
     labels = []
@@ -84,14 +85,14 @@ def prepare_training_data(df, horizon):
             continue
 
         features = compute_all_features(row.to_dict())
-        feature_rows.append([features[f] for f in FEATURE_COLUMNS])
+        feature_rows.append([features[f] for f in cols])
         labels.append(int(label))
         timestamps.append(ts)
 
     X = np.array(feature_rows, dtype=np.float64)
     y = np.array(labels, dtype=np.int32)
 
-    X = _median_impute(pd.DataFrame(X, columns=FEATURE_COLUMNS), FEATURE_COLUMNS).values
+    X = _median_impute(pd.DataFrame(X, columns=cols), cols)
 
     return X, y, np.array(timestamps)
 
@@ -107,13 +108,15 @@ def chronological_split(X, y, timestamps):
     test_idx = indices[val_end:]
 
     return (
-        X[train_idx], X[val_idx], X[test_idx],
+        X.iloc[train_idx].reset_index(drop=True),
+        X.iloc[val_idx].reset_index(drop=True),
+        X.iloc[test_idx].reset_index(drop=True),
         y[train_idx], y[val_idx], y[test_idx],
         timestamps[train_idx], timestamps[val_idx], timestamps[test_idx],
     )
 
 
-def load_training_data(horizon, symbol="BTCUSDT", timeframe="15m"):
+def load_training_data(horizon, symbol="BTCUSDT", timeframe="15m", feature_columns=None):
     conn = get_conn()
     try:
         df = load_raw_data(conn, symbol, timeframe)
@@ -121,7 +124,18 @@ def load_training_data(horizon, symbol="BTCUSDT", timeframe="15m"):
         conn.close()
 
     print(f"Loaded {len(df)} raw rows from DB")
-    X, y, timestamps = prepare_training_data(df, horizon)
+
+    # Label quality diagnostics
+    _, ret_col = HORIZON_COLUMNS[horizon]
+    rets = df[ret_col].dropna().values * 100  # convert to pct
+    if len(rets) > 0:
+        print(f"  {ret_col} percentiles: p25={np.percentile(rets, 25):.3f}% "
+              f"p50={np.percentile(rets, 50):.3f}% p75={np.percentile(rets, 75):.3f}%")
+        for thresh_pct in [0.25, 0.5, 1.0]:
+            wr = (rets >= thresh_pct).mean() * 100
+            print(f"  win_rate @ ≥{thresh_pct}%: {wr:.1f}%")
+
+    X, y, timestamps = prepare_training_data(df, horizon, feature_columns)
     print(f"After prepare: {len(X)} samples, {y.sum()} positive ({y.mean()*100:.1f}%)")
 
     splits = chronological_split(X, y, timestamps)
