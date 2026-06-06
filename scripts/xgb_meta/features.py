@@ -264,7 +264,7 @@ def compute_confidence_score(technical_score, orderflow_score, regime_score):
 # ─── Volume Delta ───────────────────────────────────────────────────────────────
 
 def compute_volume_delta(volume, volume_ema20):
-    if not _valid(volume) or not _valid(volume_ema20) or volume_ema20 <= 0:
+    if not _valid(volume) or not _valid(volume_ema20) or volume <= 0 or volume_ema20 <= 0:
         return 0.0
     ratio = volume / volume_ema20
     return math.log(ratio)
