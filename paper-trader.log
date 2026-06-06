@@ -1,0 +1,76 @@
+2026/06/07 03:33:29 main.go:93: Paper Trader started: BTCUSDT 15m capital=10000 long>=60 short<=40
+2026/06/07 03:33:29 engine.go:56: [PaperEngine] Starting: BTCUSDT 15m, capital=10000, threshold=[long>=60 short<=40]
+2026/06/07 03:33:29 engine.go:429: [PaperEngine] Recovery: balance=10000 totalPnL=0 dayPnL=0 dayTrades=0 hasPosition=false
+2026/06/07 03:33:29 engine.go:66: [PaperEngine] Entering main loop
+
+=== Paper Trader Status ===
+Uptime:        5m0s
+State:         running
+Bars seen:     1
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        10m0s
+State:         running
+Bars seen:     1
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        15m0s
+State:         running
+Bars seen:     2
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        20m0s
+State:         running
+Bars seen:     2
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        25m0s
+State:         running
+Bars seen:     2
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        30m0s
+State:         running
+Bars seen:     3
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===
+Uptime:        35m0s
+State:         running
+Bars seen:     3
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+
+=== Paper Trader Status ===

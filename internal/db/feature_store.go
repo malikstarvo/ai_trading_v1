@@ -19,6 +19,10 @@ func NewFeatureStore(pool *pgxpool.Pool) *FeatureStore {
 	return &FeatureStore{pool: pool}
 }
 
+func (s *FeatureStore) Pool() *pgxpool.Pool {
+	return s.pool
+}
+
 func (s *FeatureStore) GetActiveFeatureSetID(ctx context.Context) (int, error) {
 	var id int
 	err := s.pool.QueryRow(ctx, `SELECT id FROM feature_sets WHERE active = true LIMIT 1`).Scan(&id)
@@ -349,12 +353,12 @@ func (s *FeatureStore) LoadFeaturesAfter(ctx context.Context, symbol, timeframe 
 			symbol, timeframe, ts, feature_set_id,
 			ema20, ema50, ema200, rsi14, atr14, adx14, volume_ema20,
 			price_above_ema20, price_above_ema50, price_above_ema200,
-			oi_delta_1_pct, oi_delta_4_pct, oi_delta_12_pct,
-			oi_zscore_30, funding_rate, funding_zscore_30,
-			ls_ratio_raw, ls_ratio_normalized,
-			liq_long_usd, liq_short_usd, liq_imbalance,
-			return_1, return_4, return_12,
-			volatility_14, volatility_50
+			COALESCE(oi_delta_1_pct, 0), COALESCE(oi_delta_4_pct, 0), COALESCE(oi_delta_12_pct, 0),
+			COALESCE(oi_zscore_30, 0), COALESCE(funding_rate, 0), COALESCE(funding_zscore_30, 0),
+			COALESCE(ls_ratio_raw, 0), COALESCE(ls_ratio_normalized, 0),
+			COALESCE(liq_long_usd, 0), COALESCE(liq_short_usd, 0), COALESCE(liq_imbalance, 0),
+			COALESCE(return_1, 0), COALESCE(return_4, 0), COALESCE(return_12, 0),
+			COALESCE(volatility_14, 0), COALESCE(volatility_50, 0)
 		FROM feature_values
 		WHERE symbol = $1 AND timeframe = $2 AND feature_set_id = $3 AND ts > $4
 		ORDER BY ts ASC

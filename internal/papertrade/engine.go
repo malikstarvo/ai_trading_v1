@@ -3,6 +3,7 @@ package papertrade
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -14,6 +15,7 @@ import (
 	"github.com/avav/ai_trading_v1/internal/agent/tradegate"
 	"github.com/avav/ai_trading_v1/internal/db"
 	"github.com/avav/ai_trading_v1/internal/model"
+	"github.com/jackc/pgx/v5"
 )
 
 type PaperEngine struct {
@@ -106,6 +108,7 @@ func (e *PaperEngine) processTick(ctx context.Context) {
 		if err != nil {
 			log.Printf("[PaperEngine] load features: %v", err)
 		}
+		e.recordSnapshot(ctx, candle.Time)
 		return
 	}
 
@@ -128,13 +131,16 @@ func (e *PaperEngine) processTick(ctx context.Context) {
 
 	if e.positionOpen() {
 		if e.checkExit(ctx, candle, dir) {
+			e.recordSnapshot(ctx, candle.Time)
 			return
 		}
 		e.updateUnrealized(candle.Close)
+		e.recordSnapshot(ctx, candle.Time)
 		return
 	}
 
 	if !isNewBar || e.state == StateStopped || dir == NoTrade {
+		e.recordSnapshot(ctx, candle.Time)
 		return
 	}
 
@@ -147,6 +153,7 @@ func (e *PaperEngine) processTick(ctx context.Context) {
 	}
 	gOut := e.gate.Evaluate(gateInput)
 	if gOut.Decision == tradegate.NoTrade {
+		e.recordSnapshot(ctx, candle.Time)
 		return
 	}
 
@@ -156,6 +163,7 @@ func (e *PaperEngine) processTick(ctx context.Context) {
 	}
 	positionSize := CalcPositionSize(e.equity, candle.Close, atr, e.cfg.ATRMultiplier, e.cfg.RiskPerTradePct)
 	if positionSize <= 0 {
+		e.recordSnapshot(ctx, candle.Time)
 		return
 	}
 	positionSize *= gOut.SizeMultiplier
@@ -424,14 +432,21 @@ func (e *PaperEngine) recoverState(ctx context.Context) error {
 }
 
 func (e *PaperEngine) loadLatestCandle(ctx context.Context) (*model.Candle, error) {
-	rows, err := e.fStore.LoadCandlesAfter(ctx, e.cfg.Symbol, e.cfg.Timeframe, time.Now().Add(-24*time.Hour), 1)
+	var c model.Candle
+	err := e.fStore.Pool().QueryRow(ctx, `
+		SELECT time, symbol, timeframe, open, high, low, close, volume
+		FROM candles
+		WHERE symbol = $1 AND timeframe = $2
+		ORDER BY time DESC
+		LIMIT 1
+	`, e.cfg.Symbol, e.cfg.Timeframe).Scan(&c.Time, &c.Symbol, &c.Timeframe, &c.Open, &c.High, &c.Low, &c.Close, &c.Volume)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return &rows[len(rows)-1], nil
+	return &c, nil
 }
 
 func (e *PaperEngine) loadFeaturesAt(ctx context.Context, ts time.Time) (*model.FeatureRow, error) {
@@ -439,16 +454,28 @@ func (e *PaperEngine) loadFeaturesAt(ctx context.Context, ts time.Time) (*model.
 	if err != nil {
 		return nil, err
 	}
-	rows, err := e.fStore.LoadFeaturesAfter(ctx, e.cfg.Symbol, e.cfg.Timeframe, featureSetID, ts.Add(-5*time.Minute))
+	lookback := time.Duration(e.cfg.HoldingBars*2) * 15 * time.Minute
+	rows, err := e.fStore.LoadFeaturesAfter(ctx, e.cfg.Symbol, e.cfg.Timeframe, featureSetID, ts.Add(-lookback))
 	if err != nil {
 		return nil, err
 	}
+	var best *model.FeatureRow
 	for i := range rows {
-		if rows[i].Ts.Equal(ts) {
-			return &rows[i], nil
+		if rows[i].Ts.After(ts) {
+			continue
+		}
+		if best == nil || rows[i].Ts.After(best.Ts) {
+			best = &rows[i]
 		}
 	}
-	return nil, nil
+	if best == nil {
+		return nil, nil
+	}
+	staleness := ts.Sub(best.Ts)
+	if staleness > 1*time.Hour {
+		log.Printf("[PaperEngine] stale features: %v behind candle", staleness)
+	}
+	return best, nil
 }
 
 func (e *PaperEngine) positionOpen() bool {
