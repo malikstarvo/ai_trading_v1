@@ -8,15 +8,16 @@ DB_CONFIG = {
     "dbname": os.environ.get("DB_NAME", "ai_trading"),
 }
 
+# V1: orderflow_score and oi_delta_1_pct removed because OI/LS ratio
+# data has >80% NaN (orderflow pipeline not yet stable on server).
+# TODO: add back once NaN < 20%.
 FEATURE_COLUMNS = [
     "technical_score",
-    "orderflow_score",
     "regime_score",
     "confidence_score",
     "atr14",
     "adx14",
     "funding_rate",
-    "oi_delta_1_pct",
     "volume_delta",
 ]
 
