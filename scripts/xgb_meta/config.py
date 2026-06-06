@@ -8,16 +8,15 @@ DB_CONFIG = {
     "dbname": os.environ.get("DB_NAME", "ai_trading"),
 }
 
-# V1.1: agent scores dropped — ablation showed raw features outperform.
-# orderflow also dropped (OI/LS >80% NaN on server).
+# V1_best: raw features only — ablation confirmed B_raw_only (atr14, adx14,
+# funding_rate, volume_delta) achieves highest 24h test AUC (0.6098).
+# Agent scores and orderflow dropped (noise + >80% NaN on server).
 # TODO: re-enable after 3+ months of data collection.
 FEATURE_COLUMNS = [
-    "close",
     "atr14",
     "adx14",
     "funding_rate",
     "volume_delta",
-    "volatility_14",
 ]
 
 HORIZONS = [4, 12, 24]
