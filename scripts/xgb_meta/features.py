@@ -303,13 +303,16 @@ def compute_all_features(row):
         volume_ema20=row.get("volume_ema20"),
     )
     return {
+        "close": row.get("close") if _valid(row.get("close")) else 0.0,
+        "atr14": row.get("atr14") if _valid(row.get("atr14")) else 0.0,
+        "adx14": row.get("adx14") if _valid(row.get("adx14")) else 0.0,
+        "funding_rate": row.get("funding_rate") if _valid(row.get("funding_rate")) else 0.0,
+        "volume_delta": vol_delta,
+        "volatility_14": row.get("volatility_14") if _valid(row.get("volatility_14")) else 0.0,
+        # Kept for ablation parity but not in V1.1 feature set
         "technical_score": tech,
         "orderflow_score": of,
         "regime_score": regime_score,
         "confidence_score": conf,
-        "atr14": row.get("atr14") if _valid(row.get("atr14")) else 0.0,
-        "adx14": row.get("adx14") if _valid(row.get("adx14")) else 0.0,
-        "funding_rate": row.get("funding_rate") if _valid(row.get("funding_rate")) else 0.0,
         "oi_delta_1_pct": row.get("oi_delta_1_pct") if _valid(row.get("oi_delta_1_pct")) else 0.0,
-        "volume_delta": vol_delta,
     }

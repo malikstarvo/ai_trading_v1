@@ -24,14 +24,13 @@ VARIANTS = {
         "funding_rate",
         "volume_delta",
     ],
-    "C_v1_current": [
-        "technical_score",
-        "regime_score",
-        "confidence_score",
+    "C_v1_1_raw_expanded": [
+        "close",
         "atr14",
         "adx14",
         "funding_rate",
         "volume_delta",
+        "volatility_14",
     ],
     "D_with_orderflow": [
         "technical_score",
