@@ -1,0 +1,39 @@
+dari assignment 10 : Nanti jika sistem sudah stabil, baru pertimbangkan memindahkan scoring ke satu source of truth.
+
+Orderflow pipeline stabil — OI Delta dan LS Ratio saat ini >80% NaN. Setelah collector jalan lebih lama, NaN akan turun, dan fitur itu bisa diaktifkan kembali.
+Ablation test — jalankan ablation.py sekali untuk tahu variant feature set mana yang paling menjanjikan, lalu fokus ke situ.
+
+0	psql -h localhost -U trader -d ai_trading -f scripts/xgb_meta/audit_data.sql	NaN coverage + label quality
+1	bash scripts/xgb_meta/run_all.sh	Re-train with real feature names
+2	venv/bin/python scripts/xgb_meta/ablation.py	Ablation test (4 variants × 3 horizons)
+
+venv/bin/python ablation.py   # confirm C_v1_1_raw_expanded AUC
+venv/bin/python train.py --horizon 24   # train final model
+
+
+Short-term (now):
+- Skip integrating the XGBoost model into TradeGate yet — AUC 0.61 won't meaningfully improve V1 trading
+- Let the collector run unattended for 1-3 months on the VPS
+Medium-term (1-2 months):
+- Re-run ablation on 3 months of data — if raw features hit 0.65+ AUC, then integrate
+- Add return_12 / return_24 as trailing features in the Go feature engine (needs SQL feature_values schema change)
+When integrating the model into TradeGate (post-AUC 0.65):
+- predict.py:load_latest_model() called once at startup
+- TradeGate.Evaluate() queries the model with the latest feature row
+- Probability ≥ 0.45 passes the gate
+
+
+Cara run:
+go run ./cmd/paper-trader/
+Atau build dulu:
+go build -o paper-trader.exe ./cmd/paper-trader/
+./paper-trader.exe
+Konfigurasi via env vars:
+- SYMBOL=BTCUSDT (default)
+- TIMEFRAME=15m
+- INITIAL_CAPITAL=10000
+- LONG_THRESHOLD=60, SHORT_THRESHOLD=40
+- POLL_INTERVAL=60s
+- MAX_DAILY_DRAWDOWN_PCT=5
+- MAX_TOTAL_DRAWDOWN_PCT=15
+- ATR_MULTIPLIER=2, HOLDING_BARS=24
