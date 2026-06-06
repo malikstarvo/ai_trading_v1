@@ -122,7 +122,7 @@ def main():
     print(f"{'='*60}")
     print(f"  {'Variant':<25s}", end="")
     for h in HORIZONS:
-        print(f"  {h:>8s}b", end="")
+        print(f"  {h:>8d}b", end="")
     hdr_sep = "-" * 25
     col_sep = "-" * 8
     print()
