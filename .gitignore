@@ -1,0 +1,3 @@
+*.exe
+scripts/xgb_meta/venv/
+scripts/xgb_meta/models/

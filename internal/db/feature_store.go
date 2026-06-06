@@ -343,6 +343,52 @@ func nanToNull(v float64) *float64 {
 	return &v
 }
 
+func (s *FeatureStore) LoadFeaturesAfter(ctx context.Context, symbol, timeframe string, featureSetID int, after time.Time) ([]model.FeatureRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT
+			symbol, timeframe, ts, feature_set_id,
+			ema20, ema50, ema200, rsi14, atr14, adx14, volume_ema20,
+			price_above_ema20, price_above_ema50, price_above_ema200,
+			oi_delta_1_pct, oi_delta_4_pct, oi_delta_12_pct,
+			oi_zscore_30, funding_rate, funding_zscore_30,
+			ls_ratio_raw, ls_ratio_normalized,
+			liq_long_usd, liq_short_usd, liq_imbalance,
+			return_1, return_4, return_12,
+			volatility_14, volatility_50
+		FROM feature_values
+		WHERE symbol = $1 AND timeframe = $2 AND feature_set_id = $3 AND ts > $4
+		ORDER BY ts ASC
+	`, symbol, timeframe, featureSetID, after)
+	if err != nil {
+		return nil, fmt.Errorf("query features: %w", err)
+	}
+	defer rows.Close()
+
+	var features []model.FeatureRow
+	for rows.Next() {
+		var f model.FeatureRow
+		var pAbove20, pAbove50, pAbove200 int8
+		if err := rows.Scan(
+			&f.Symbol, &f.Timeframe, &f.Ts, &f.FeatureSetID,
+			&f.EMA20, &f.EMA50, &f.EMA200, &f.RSI14, &f.ATR14, &f.ADX14, &f.VolumeEMA20,
+			&pAbove20, &pAbove50, &pAbove200,
+			&f.OIDelta1Pct, &f.OIDelta4Pct, &f.OIDelta12Pct,
+			&f.OIZScore30, &f.FundingRate, &f.FundingZScore30,
+			&f.LSRatioRaw, &f.LSRatioNormalized,
+			&f.LiqLongUSD, &f.LiqShortUSD, &f.LiqImbalance,
+			&f.Return1, &f.Return4, &f.Return12,
+			&f.Volatility14, &f.Volatility50,
+		); err != nil {
+			return nil, fmt.Errorf("scan feature: %w", err)
+		}
+		f.PriceAboveEMA20 = pAbove20
+		f.PriceAboveEMA50 = pAbove50
+		f.PriceAboveEMA200 = pAbove200
+		features = append(features, f)
+	}
+	return features, rows.Err()
+}
+
 func parseDuration(timeframe string) time.Duration {
 	switch timeframe {
 	case "15m":
