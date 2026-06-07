@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, type ModelStatus } from "@/lib/api"
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BrainCircuit, RefreshCw } from "lucide-react"
 
 function fmtAUC(v: number | undefined): string {
@@ -85,21 +86,21 @@ export function Model() {
             <BrainCircuit className="h-4 w-4" /> Model Performance
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-72">
+          <CardContent className="h-72">
           {aucData.length === 0 ? (
             <p className="text-muted-foreground text-sm">No trained models yet. Models are retrained weekly via cron (Sun 4AM UTC).</p>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={{ auc: { label: "Test AUC", color: "var(--chart-1)" } }} className="h-72">
               <BarChart data={aucData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 1]} tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v) => [fmtAUC(v as number), "AUC"]} />
-                <Bar dataKey="auc" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <ChartTooltip content={<ChartTooltipContent formatter={(v: number) => [fmtAUC(v), "AUC"]} />} />
+                <Bar dataKey="auc" fill="var(--color-auc)" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           )}
-        </CardContent>
+          </CardContent>
       </Card>
 
       <Card>

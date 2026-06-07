@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { api, type PaperStatus, type Position, type Trade, type AccountSnapshot } from "@/lib/api"
 import { useWS } from "@/hooks/useWebSocket"
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { TrendingUp, DollarSign, BarChart3 } from "lucide-react"
 
 export function Trading() {
@@ -108,15 +109,15 @@ export function Trading() {
             {account.length === 0 ? (
               <p className="text-muted-foreground text-sm">No data</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer config={{ equity: { label: "Equity", color: "var(--chart-1)" } }} className="h-64">
                 <AreaChart data={account}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="ts" tick={{ fontSize: 10 }} hide />
                   <YAxis tick={{ fontSize: 10 }} domain={["auto", "auto"]} />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="equity" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area type="monotone" dataKey="equity" stroke="var(--color-equity)" fill="var(--color-equity)" fillOpacity={0.1} strokeWidth={2} />
                 </AreaChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -129,15 +130,15 @@ export function Trading() {
             {trades.length === 0 ? (
               <p className="text-muted-foreground text-sm">No trades yet</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer config={{ net_pnl: { label: "Net PnL", color: "var(--chart-1)" } }} className="h-64">
                 <BarChart data={trades.slice(-50).map((t) => ({ ...t, fill: t.net_pnl >= 0 ? "#22c55e" : "#ef4444" }))}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="id" tick={{ fontSize: 10 }} hide />
                   <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Bar dataKey="net_pnl" fill="#6366f1" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="net_pnl" fill="var(--color-net_pnl)" />
                 </BarChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>

@@ -2,9 +2,17 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { api, type Candle, type OrderflowPoint } from "@/lib/api"
 import { useWS } from "@/hooks/useWebSocket"
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+
+const chartConfig = {
+  close: { label: "Close Price", color: "var(--chart-1)" },
+  funding_rate: { label: "Funding Rate", color: "var(--chart-1)" },
+  oi_value_usd: { label: "Open Interest", color: "var(--chart-2)" },
+} satisfies import("@/components/ui/chart").ChartConfig
 
 function CloseChart({ data }: { data: Candle[] }) {
   if (data.length === 0) return <div className="flex items-center justify-center h-64 text-muted-foreground">No candle data</div>
@@ -16,17 +24,15 @@ function CloseChart({ data }: { data: Candle[] }) {
   }))
 
   return (
-    <div className="h-80">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-          <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-          <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
-          <Tooltip />
-          <Line type="monotone" dataKey="close" stroke="#6366f1" dot={false} strokeWidth={1.5} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <ChartContainer config={chartConfig} className="h-80">
+      <LineChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+        <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+        <YAxis domain={["auto", "auto"]} tick={{ fontSize: 10 }} />
+        <ChartTooltip content={<ChartTooltipContent />} />
+        <Line type="monotone" dataKey="close" stroke="var(--color-close)" dot={false} strokeWidth={1.5} />
+      </LineChart>
+    </ChartContainer>
   )
 }
 
@@ -67,15 +73,25 @@ export function Market() {
           )}
         </div>
         <div className="flex gap-2">
-          <select className="rounded-lg border bg-background px-3 py-1.5 text-sm" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-            <option value="BTCUSDT">BTC/USDT</option>
-            <option value="ETHUSDT">ETH/USDT</option>
-            <option value="SOLUSDT">SOL/USDT</option>
-          </select>
-          <select className="rounded-lg border bg-background px-3 py-1.5 text-sm" value={tf} onChange={(e) => setTf(e.target.value)}>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-          </select>
+          <Select value={symbol} onValueChange={setSymbol}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="BTCUSDT">BTC/USDT</SelectItem>
+              <SelectItem value="ETHUSDT">ETH/USDT</SelectItem>
+              <SelectItem value="SOLUSDT">SOL/USDT</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={tf} onValueChange={setTf}>
+            <SelectTrigger className="w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="15m">15m</SelectItem>
+              <SelectItem value="1h">1h</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -95,15 +111,15 @@ export function Market() {
           </CardHeader>
           <CardContent className="h-48">
             {loading ? <Skeleton className="h-full w-full" /> : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer config={chartConfig} className="h-48">
                 <LineChart data={fundData}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="time" tick={{ fontSize: 10 }} hide />
                   <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="funding_rate" stroke="#6366f1" dot={false} strokeWidth={1.5} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="funding_rate" stroke="var(--color-funding_rate)" dot={false} strokeWidth={1.5} />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -114,15 +130,15 @@ export function Market() {
           </CardHeader>
           <CardContent className="h-48">
             {loading ? <Skeleton className="h-full w-full" /> : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer config={chartConfig} className="h-48">
                 <LineChart data={oiData}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="time" tick={{ fontSize: 10 }} hide />
                   <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="oi_value_usd" stroke="#22c55e" dot={false} strokeWidth={1.5} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line type="monotone" dataKey="oi_value_usd" stroke="var(--color-oi_value_usd)" dot={false} strokeWidth={1.5} />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             )}
           </CardContent>
         </Card>

@@ -2,8 +2,10 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { api, type FeatureNaN, type FeatureRanking, type FeatureRow } from "@/lib/api"
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 function NaNBar({ pct }: { pct: number }) {
   const color = pct > 80 ? "#ef4444" : pct > 40 ? "#f59e0b" : "#22c55e"
@@ -52,15 +54,25 @@ export function Features() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Features Analysis</h1>
         <div className="flex gap-2">
-          <select className="rounded-lg border bg-background px-3 py-1.5 text-sm" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-            <option value="BTCUSDT">BTC/USDT</option>
-            <option value="ETHUSDT">ETH/USDT</option>
-            <option value="SOLUSDT">SOL/USDT</option>
-          </select>
-          <select className="rounded-lg border bg-background px-3 py-1.5 text-sm" value={tf} onChange={(e) => setTf(e.target.value)}>
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-          </select>
+          <Select value={symbol} onValueChange={setSymbol}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="BTCUSDT">BTC/USDT</SelectItem>
+              <SelectItem value="ETHUSDT">ETH/USDT</SelectItem>
+              <SelectItem value="SOLUSDT">SOL/USDT</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={tf} onValueChange={setTf}>
+            <SelectTrigger className="w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="15m">15m</SelectItem>
+              <SelectItem value="1h">1h</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -70,15 +82,15 @@ export function Features() {
             <CardTitle>Feature Ranking (Edge Study)</CardTitle>
           </CardHeader>
           <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={{ score: { label: "Edge Score", color: "var(--chart-1)" } }} className="h-72">
               <BarChart data={top10} layout="vertical" margin={{ left: 100 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                 <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 10 }} />
                 <YAxis dataKey="feature" type="category" tick={{ fontSize: 10 }} width={90} />
-                <Tooltip />
-                <Bar dataKey="score" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="score" fill="var(--color-score)" radius={[0, 4, 4, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
 
