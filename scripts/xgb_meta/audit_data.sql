@@ -24,23 +24,22 @@ WHERE symbol = 'BTCUSDT' AND timeframe = '15m';
 \echo ''
 \echo '=== V1 Feature NaN Coverage (BTCUSDT 15m) ==='
 SELECT
-  COUNT(*)                                                                  AS total_rows,
-  COUNT(technical_score)                                                    AS nn_tech,
-  COUNT(regime_score)                                                       AS nn_regime,
-  COUNT(confidence_score)                                                   AS nn_conf,
-  COUNT(atr14)                                                              AS nn_atr,
-  COUNT(adx14)                                                              AS nn_adx,
-  COUNT(funding_rate)                                                       AS nn_fr,
-  COUNT(volume_delta)                                                       AS nn_vol_delta
-FROM (
-  SELECT
-    fv.atr14, fv.adx14, fv.funding_rate,
-    -- nullable fields that feed into technical/regime confidence scores
-    fv.ema20, fv.ema50, fv.ema200, fv.rsi14, fv.volume, fv.volume_ema20,
-    fv.volatility_14
-  FROM feature_values fv
-  WHERE fv.symbol = 'BTCUSDT' AND fv.timeframe = '15m'
-) sub;
+  COUNT(*)                                                        AS total_rows,
+  COUNT(ema20)                                                    AS nn_ema20,
+  COUNT(ema50)                                                    AS nn_ema50,
+  COUNT(ema200)                                                   AS nn_ema200,
+  COUNT(rsi14)                                                    AS nn_rsi14,
+  COUNT(atr14)                                                    AS nn_atr,
+  COUNT(adx14)                                                    AS nn_adx,
+  COUNT(volume_ema20)                                             AS nn_vol_ema20,
+  COUNT(funding_rate)                                             AS nn_funding,
+  COUNT(oi_delta_1_pct)                                           AS nn_oi1,
+  COUNT(ls_ratio_raw)                                             AS nn_ls_ratio,
+  COUNT(liq_long_usd)                                             AS nn_liq_long,
+  COUNT(liq_short_usd)                                            AS nn_liq_short,
+  COUNT(volatility_14)                                            AS nn_volatility
+FROM feature_values
+WHERE symbol = 'BTCUSDT' AND timeframe = '15m';
 
 \echo ''
 \echo '=== Label Distribution (BTCUSDT 15m) ==='
@@ -49,9 +48,9 @@ SELECT
   COUNT(*)                                            AS total,
   SUM(success::int)                                   AS wins,
   ROUND(AVG(success::numeric) * 100, 1)               AS win_rate_pct,
-  ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY ret), 4) AS p25_ret,
-  ROUND(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY ret), 4) AS p50_ret,
-  ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ret), 4) AS p75_ret,
+  ROUND((PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY ret))::numeric, 4) AS p25_ret,
+  ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY ret))::numeric, 4) AS p50_ret,
+  ROUND((PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ret))::numeric, 4) AS p75_ret,
   ROUND(AVG(ret)::numeric, 4)                         AS mean_ret,
   ROUND(STDDEV(ret)::numeric, 4)                      AS std_ret
 FROM (

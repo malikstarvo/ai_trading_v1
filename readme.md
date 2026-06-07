@@ -137,6 +137,86 @@ Decision:    TRADE (threshold: 0.45)
 | 8 | oi_delta_1_pct | Open Interest 1-bar % change |
 | 9 | volume_delta | log(volume / volume_ema20) |
 
+## Paper Trade (Live Monitoring)
+
+The paper trader runs on the VPS as a background process. It polls the latest candle
+every 60s, computes technical/orderflow/regime scores, and simulates trades without
+real capital.
+
+### Starting & Stopping
+
+```bash
+# Start (if not running)
+cd ~/ai_trading_v1
+screen -dmS paper-trader bash -c './paper-trader 2>&1 | tee -a paper-trader.log'
+
+# Stop
+screen -X -S paper-trader kill
+```
+
+### Checking Status
+
+```bash
+# Is it running?
+screen -ls
+ps aux | grep paper-trader | grep -v grep
+
+# Read recent logs
+tail -20 paper-trader.log
+
+# Follow logs live
+tail -f paper-trader.log
+```
+
+The status line prints every 5 minutes and shows:
+
+```
+=== Paper Trader Status ===
+Uptime:        35m0s
+State:         running
+Bars seen:     3
+Equity:        $10000.00
+Total PnL:     $0.00 (0.00%)
+Day PnL:       $0.00
+Day Trades:    0
+Position:      none
+```
+
+### Key DB Queries (via `docker exec`)
+
+```bash
+# Latest snapshot
+docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
+  -c 'SELECT ts, balance, equity, unrealized_pnl FROM paper_account_snapshots ORDER BY ts DESC LIMIT 5;'
+
+# Snapshot count
+docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
+  -c 'SELECT COUNT(*) FROM paper_account_snapshots;'
+
+# Open positions
+docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
+  -c 'SELECT * FROM open_positions WHERE status = '"'"'open'"'"';'
+
+# Latest candle
+docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
+  -c 'SELECT time, close FROM candles WHERE symbol='"'""'BTCUSDT'"'""' AND timeframe='"'""'15m'"'""' ORDER BY time DESC LIMIT 1;'
+
+# Feature lag (how far behind latest candle)
+docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
+  -c "SELECT 'candle' as src, MAX(time) FROM candles WHERE symbol='BTCUSDT' AND timeframe='15m' UNION ALL SELECT 'feature', MAX(ts) FROM feature_values WHERE symbol='BTCUSDT' AND timeframe='15m';"
+```
+
+### Feature Backfill
+
+Features are auto-computed via cron every 30 minutes:
+
+```bash
+crontab -l
+# */30 * * * * /home/ubuntu/ai_trading_v1/scripts/run-feature-backfill.sh
+```
+
+To run manually: `cd ~/ai_trading_v1 && go run ./cmd/feature-backfill/`
+
 ## Automation
 
 ```bash
