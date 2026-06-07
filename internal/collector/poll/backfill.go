@@ -100,6 +100,9 @@ func (b *Backfill) backfillFundingRates(ctx context.Context, symbol string, from
 			break
 		}
 		for _, item := range resp.List {
+			if item.FundingTime < 1577836800000 { // skip pre-2020
+				continue
+			}
 			fr := mapper.RestToFundingRate(item)
 			fr.Symbol = symbol
 			if err := b.orderFlowStore.InsertFundingRate(ctx, &fr); err != nil {
