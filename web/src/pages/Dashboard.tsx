@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, type Health, type DataCoverage, type PaperStatus, type Trade } from "@/lib/api"
+import { useWS } from "@/hooks/useWebSocket"
 import { Activity, Database, TrendingUp, BarChart3, Clock, AlertTriangle } from "lucide-react"
 
 function StatCard({ title, value, icon: Icon, subtitle, badge }: {
@@ -30,6 +31,10 @@ export function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Live updates from WebSocket
+  const wsAccount = useWS("account")
+  const wsHealth = useWS("health")
+
   useEffect(() => {
     Promise.all([
       api.health(),
@@ -44,6 +49,13 @@ export function Dashboard() {
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
 
+  // Merge live WS data
+  const liveBalance = wsAccount?.balance ?? paper?.balance ?? 10000
+  const liveEquity = wsAccount?.equity ?? paper?.equity ?? 10000
+  const liveDayPnL = wsAccount?.day_pnl ?? paper?.day_pnl ?? 0
+  const liveDayTrades = wsAccount?.day_trades ?? paper?.day_trades ?? 0
+  const liveCollector = wsHealth?.collector ?? health?.collector ?? "unknown"
+
   if (loading) return (
     <div className="space-y-4">
       <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -57,26 +69,30 @@ export function Dashboard() {
   const features = overview.find((o) => o.table === "feature_values")
   const labels = overview.find((o) => o.table === "training_labels")
 
-  const healthStatus = health?.collector === "ok" && health?.db === "ok" ? "success" : health?.collector === "ok" || health?.db === "ok" ? "warning" : "destructive"
+  const healthOk = liveCollector === "ok" || liveCollector === "healthy"
+  const healthStatus = healthOk ? "success" : "destructive"
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <Badge variant={healthStatus}>
-          {health?.collector === "ok" ? "Collector OK" : "Collector Down"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <div className={`h-2 w-2 rounded-full ${healthOk ? "bg-emerald-500" : "bg-red-500"}`} />
+          <Badge variant={healthStatus}>
+            {healthOk ? "Live" : "Disconnected"}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Candles (15m)" value={candles?.count.toLocaleString() ?? "0"} icon={Database} subtitle={`${candles?.span_days ?? 0}d span`} />
         <StatCard title="Features" value={features?.count.toLocaleString() ?? "0"} icon={BarChart3} subtitle={`${features?.span_days ?? 0}d span`} />
         <StatCard title="Labels" value={labels?.count.toLocaleString() ?? "0"} icon={Activity} />
-        <StatCard title="Balance" value={`$${paper?.balance.toLocaleString() ?? "10,000"}`} icon={TrendingUp}
-          badge={{ label: paper?.state === "running" ? "Running" : "Stopped", variant: paper?.state === "running" ? "success" : "destructive" }}
+        <StatCard title="Balance" value={`$${liveBalance.toLocaleString()}`} icon={TrendingUp}
+          badge={{ label: "Running", variant: "success" }}
         />
-        <StatCard title="Day PnL" value={`$${(paper?.day_pnl ?? 0).toFixed(2)}`} icon={TrendingUp}
-          badge={{ label: (paper?.day_pnl ?? 0) >= 0 ? "Profitable" : "Loss", variant: (paper?.day_pnl ?? 0) >= 0 ? "success" : "destructive" }}
+        <StatCard title="Day PnL" value={`$${liveDayPnL.toFixed(2)}`} icon={TrendingUp}
+          badge={{ label: liveDayPnL >= 0 ? "Profitable" : "Loss", variant: liveDayPnL >= 0 ? "success" : "destructive" }}
         />
         <StatCard title="Uptime" value={`${health?.uptime_hours.toFixed(1) ?? 0}h`} icon={Clock} subtitle="Collector" />
       </div>

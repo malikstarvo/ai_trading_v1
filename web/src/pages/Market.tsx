@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { api, type Candle, type OrderflowPoint } from "@/lib/api"
+import { useWS } from "@/hooks/useWebSocket"
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts"
 
 function CloseChart({ data }: { data: Candle[] }) {
@@ -34,6 +36,10 @@ export function Market() {
   const [candles, setCandles] = useState<Candle[]>([])
   const [orderflow, setOrderflow] = useState<OrderflowPoint[]>([])
   const [loading, setLoading] = useState(true)
+  const wsData = useWS("candle")
+
+  // Append live candle to chart if symbol matches
+  const livePrice = symbol === "BTCUSDT" ? wsData?.close : undefined
 
   useEffect(() => {
     setLoading(true)
@@ -52,7 +58,14 @@ export function Market() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Market Data</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">Market Data</h1>
+          {livePrice && (
+            <Badge variant="outline" className="text-base font-mono px-3 py-1">
+              ${livePrice.toFixed(2)}
+            </Badge>
+          )}
+        </div>
         <div className="flex gap-2">
           <select className="rounded-lg border bg-background px-3 py-1.5 text-sm" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
             <option value="BTCUSDT">BTC/USDT</option>

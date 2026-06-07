@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { api, type PaperStatus, type Position, type Trade, type AccountSnapshot } from "@/lib/api"
+import { useWS } from "@/hooks/useWebSocket"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from "recharts"
 import { TrendingUp, DollarSign, BarChart3 } from "lucide-react"
 
@@ -14,6 +15,7 @@ export function Trading() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [account, setAccount] = useState<AccountSnapshot[]>([])
   const [loading, setLoading] = useState(true)
+  const wsAccount = useWS("account")
 
   useEffect(() => {
     Promise.all([
@@ -28,6 +30,12 @@ export function Trading() {
       setAccount(a)
     }).catch(console.error).finally(() => setLoading(false))
   }, [])
+
+  // Merge live WS account data
+  const liveBalance = wsAccount?.balance ?? status?.balance ?? 10000
+  const liveEquity = wsAccount?.equity ?? status?.equity ?? 10000
+  const liveDayPnL = wsAccount?.day_pnl ?? status?.day_pnl ?? 0
+  const liveDayTrades = wsAccount?.day_trades ?? status?.day_trades ?? 0
 
   if (loading) return (
     <div className="space-y-4">
@@ -52,8 +60,8 @@ export function Trading() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${status?.balance.toFixed(2) ?? "0"}</div>
-            <p className="text-xs text-muted-foreground mt-1">Equity: ${status?.equity.toFixed(2) ?? "0"}</p>
+            <div className="text-2xl font-bold">${liveBalance.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Equity: ${liveEquity.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -83,9 +91,9 @@ export function Trading() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{status?.day_trades ?? 0}</div>
-            <p className={`text-xs mt-1 ${(status?.day_pnl ?? 0) >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-              Day PnL: ${status?.day_pnl.toFixed(2) ?? "0"}
+            <div className="text-2xl font-bold">{liveDayTrades}</div>
+            <p className={`text-xs mt-1 ${liveDayPnL >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+              Day PnL: ${liveDayPnL.toFixed(2)}
             </p>
           </CardContent>
         </Card>

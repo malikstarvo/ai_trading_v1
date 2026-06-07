@@ -1,4 +1,4 @@
-import os
+import asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -13,13 +13,16 @@ from api.routers import (
     trading,
     model,
     system,
+    ws,
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.connect()
+    task = asyncio.create_task(ws.broadcast_loop(10.0))
     yield
+    task.cancel()
     await db.close()
 
 
@@ -39,13 +42,14 @@ app.include_router(features.router)
 app.include_router(trading.router)
 app.include_router(model.router)
 app.include_router(system.router)
-
-
-static_dir = Path(__file__).resolve().parent.parent / "web" / "dist"
-if static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+app.include_router(ws.router)  # WebSocket before static mount
 
 
 @app.get("/api/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+static_dir = Path(__file__).resolve().parent.parent / "web" / "dist"
+if static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
