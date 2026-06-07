@@ -195,7 +195,7 @@ docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
 
 # Open positions
 docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
-  -c 'SELECT * FROM open_positions WHERE status = '"'"'open'"'"';'
+  -c 'SELECT * FROM paper_positions WHERE status = '"'"'open'"'"';'
 
 # Latest candle
 docker exec ai_trading_v1-postgres-1 psql -U trader -d ai_trading \
@@ -216,6 +216,27 @@ crontab -l
 ```
 
 To run manually: `cd ~/ai_trading_v1 && go run ./cmd/feature-backfill/`
+
+## Data Coverage
+
+Run a full coverage report to see candle/feature/label counts, date ranges, and gaps:
+
+```bash
+cd ~/ai_trading_v1
+PGPASSWORD=trader_pass psql -h localhost -U trader -d ai_trading -f scripts/data_coverage.sql
+```
+
+Output includes:
+- **Candle coverage** — count, date range, span days per symbol/timeframe
+- **Candle gaps** — any 15m gaps >30 minutes (top 10)
+- **Feature coverage** — count, date range, span days
+- **Feature vs candle lag** — how far behind features are from latest candle
+- **Label coverage** — training label counts and date ranges
+- **Paper trading summary** — snapshots, positions, trades, orders
+- **Latest snapshots** — last 5 account snapshots
+- **Open positions** — currently held positions
+- **Recent trades** — last 5 completed trades
+- **NaN coverage** — percentage of NULL/NaN values per feature column
 
 ## Automation
 
