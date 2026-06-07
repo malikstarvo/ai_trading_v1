@@ -135,6 +135,34 @@ export interface ModelStatus {
   }[]
 }
 
+export interface DataOverviewSymbol {
+  symbol: string
+  timeframe: string
+  candle_rows: number
+  candle_first_ts: string | null
+  candle_last_ts: string | null
+  candle_days_span: number
+  candle_progress_pct: number
+  feature_rows: number
+  feature_first_ts: string | null
+  feature_last_ts: string | null
+  feature_days_span: number
+  oi_nan_pct: string | null
+  ls_nan_pct: string | null
+  target_days: number
+  remaining_days: number
+  est_completion_date: string
+}
+
+export interface DataOverview {
+  symbols: DataOverviewSymbol[]
+  funding_rates: { rows: number; first_ts: string | null; last_ts: string | null } | null
+  open_interest: { rows: number; first_ts: string | null; last_ts: string | null; days_span: number } | null
+  ls_ratios: { rows: number; first_ts: string | null; last_ts: string | null; days_span: number } | null
+  liquidations: { rows: number; first_ts: string | null; last_ts: string | null; days_span: number } | null
+  target_days: number
+}
+
 export interface SystemInfo {
   collector: {
     running: boolean
@@ -155,6 +183,7 @@ export interface SystemInfo {
 
 // ── API calls ──
 export const api = {
+  dataOverview: () => fetchJSON<DataOverview>('/data/overview'),
   health: () => fetchJSON<Health>('/health'),
   overview: () => fetchJSON<DataCoverage[]>('/stats/overview'),
   candles: (symbol = 'BTCUSDT', tf = '15m', limit = 200) =>

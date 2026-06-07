@@ -2,9 +2,9 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api, type Health, type DataCoverage, type PaperStatus, type Trade } from "@/lib/api"
+import { api, type Health, type DataCoverage, type PaperStatus, type Trade, type DataOverview } from "@/lib/api"
 import { useWS } from "@/hooks/useWebSocket"
-import { Activity, Database, TrendingUp, BarChart3, Clock, AlertTriangle } from "lucide-react"
+import { Activity, Database, TrendingUp, BarChart3, Clock, AlertTriangle, CircleCheck, CircleAlert } from "lucide-react"
 
 function StatCard({ title, value, icon: Icon, subtitle, badge }: {
   title: string; value: string; icon: React.FC<{ className?: string }>; subtitle?: string; badge?: { label: string; variant: "success" | "warning" | "destructive" | "default" }
@@ -27,6 +27,7 @@ function StatCard({ title, value, icon: Icon, subtitle, badge }: {
 export function Dashboard() {
   const [health, setHealth] = useState<Health | null>(null)
   const [overview, setOverview] = useState<DataCoverage[]>([])
+  const [dataOverview, setDataOverview] = useState<DataOverview | null>(null)
   const [paper, setPaper] = useState<PaperStatus | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,11 +40,13 @@ export function Dashboard() {
     Promise.all([
       api.health(),
       api.overview(),
+      api.dataOverview(),
       api.paperStatus(),
       api.paperTrades(5),
-    ]).then(([h, o, p, t]) => {
+    ]).then(([h, o, d, p, t]) => {
       setHealth(h)
       setOverview(o)
+      setDataOverview(d)
       setPaper(p)
       setTrades(t)
     }).catch(console.error).finally(() => setLoading(false))
@@ -96,6 +99,99 @@ export function Dashboard() {
         />
         <StatCard title="Uptime" value={`${health?.uptime_hours.toFixed(1) ?? 0}h`} icon={Clock} subtitle="Collector" />
       </div>
+
+      {/* Data Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Database className="h-5 w-5" /> Data Progress
+            <Badge variant="outline" className="ml-2 text-xs">{dataOverview ? `${dataOverview.target_days}d target` : "—"}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dataOverview?.symbols.length ? (
+            <div className="space-y-5">
+              {dataOverview.symbols.map((s) => {
+                const pct = s.candle_progress_pct
+                const color = pct >= 90 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500"
+                const progressLabel = pct >= 90 ? "Ready" : pct >= 50 ? "Collecting" : "Early"
+                return (
+                  <div key={`${s.symbol}-${s.timeframe}`}>
+                    <div className="mb-1.5 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        {s.symbol}
+                        <Badge variant="secondary" className="text-xs">{s.timeframe}</Badge>
+                        {pct >= 90
+                          ? <CircleCheck className="h-3.5 w-3.5 text-emerald-500" />
+                          : <CircleAlert className="h-3.5 w-3.5 text-amber-500" />
+                        }
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{s.candle_days_span}/{dataOverview.target_days}d</span>
+                        <span>{s.candle_rows.toLocaleString()} candles</span>
+                        {s.oi_nan_pct !== null && (
+                          <span title="OI NaN rate">OI {s.oi_nan_pct}% NaN</span>
+                        )}
+                        {s.ls_nan_pct !== null && (
+                          <span title="LS ratio NaN rate" className="text-emerald-600">LS {s.ls_nan_pct}% NaN</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${color}`}
+                        style={{ width: `${Math.min(pct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="mt-0.5 flex justify-between text-[11px] text-muted-foreground">
+                      <span>Started {s.candle_first_ts?.slice(0, 10) ?? "—"}</span>
+                      <span className={pct >= 90 ? "text-emerald-500 font-medium" : ""}>{progressLabel}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+              <AlertTriangle className="h-4 w-4" /> No data yet
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Summary row */}
+      {dataOverview && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Funding Rates</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{dataOverview.funding_rates?.rows.toLocaleString() ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{dataOverview.funding_rates?.last_ts?.slice(0, 10) ?? "—"}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Open Interest</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{dataOverview.open_interest?.rows.toLocaleString() ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{dataOverview.open_interest?.days_span ?? 0}d span</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">LS Ratios</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{dataOverview.ls_ratios?.rows.toLocaleString() ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{dataOverview.ls_ratios?.days_span ?? 0}d span</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Liquidations</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{dataOverview.liquidations?.rows.toLocaleString() ?? 0}</p>
+              <p className="text-xs text-muted-foreground">{dataOverview.liquidations?.days_span ?? 0}d span</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
