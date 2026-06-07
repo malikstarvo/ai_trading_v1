@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -108,7 +107,7 @@ func (b *Backfill) backfillFundingRates(ctx context.Context, symbol string, from
 			}
 			total++
 		}
-		end = parseInt64(resp.List[len(resp.List)-1].FundingTime) - 1
+		end = resp.List[len(resp.List)-1].FundingTime - 1
 		if end <= start || len(resp.List) < 200 {
 			break
 		}
@@ -118,11 +117,6 @@ func (b *Backfill) backfillFundingRates(ctx context.Context, symbol string, from
 	}
 	b.logger.Info("funding rate backfill complete", "symbol", symbol, "total_records", total)
 	return nil
-}
-
-func parseInt64(s string) int64 {
-	n, _ := strconv.ParseInt(s, 10, 64)
-	return n
 }
 
 func (b *Backfill) backfillSymbol(ctx context.Context, symbol, timeframe, bybitInterval string) error {
