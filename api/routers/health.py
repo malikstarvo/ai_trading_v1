@@ -18,16 +18,17 @@ async def health():
         row = await db.fetchrow(
             "SELECT status FROM collector_health WHERE service_name = 'collector'"
         )
-        collector_ok = row is not None and row["status"] == "ok"
+        collector_ok = row is not None and row["status"] in ("ok", "healthy")
     except Exception:
         pass
 
-    paper_status = "unknown"
+    paper_status = "stopped"
     try:
         row = await db.fetchrow(
-            "SELECT state FROM paper_trading_state ORDER BY updated_at DESC LIMIT 1"
+            "SELECT COUNT(*) AS cnt FROM paper_account_snapshots"
         )
-        paper_status = row["state"] if row else "stopped"
+        if row and row["cnt"] > 0:
+            paper_status = "running"
     except Exception:
         pass
 
