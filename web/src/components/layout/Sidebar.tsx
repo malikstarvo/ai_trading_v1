@@ -1,3 +1,4 @@
+import { NavLink } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard, CandlestickChart, Activity, TrendingUp,
@@ -6,15 +7,14 @@ import {
 import { useState } from "react"
 
 const nav = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/market", label: "Market", icon: CandlestickChart },
-  { href: "/features", label: "Features", icon: Activity },
+  { href: "/data", label: "Data Quality", icon: Activity },
   { href: "/trading", label: "Trading", icon: TrendingUp },
-  { href: "/model", label: "Model", icon: BrainCircuit },
-  { href: "/system", label: "System", icon: Server },
+  { href: "/system", label: "System & Models", icon: Server },
 ]
 
-export function Sidebar({ current, onNavigate }: { current: string; onNavigate: (path: string) => void }) {
+export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
 
@@ -38,19 +38,19 @@ export function Sidebar({ current, onNavigate }: { current: string; onNavigate: 
 
       <nav className="flex-1 space-y-1 p-2">
         {nav.map((item) => (
-          <button
+          <NavLink
             key={item.href}
-            onClick={() => onNavigate(item.href)}
-            className={cn(
+            to={item.href}
+            className={({ isActive }) => cn(
               "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              current === item.href
+              isActive
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "hover:bg-sidebar-accent/50 text-sidebar-foreground/70 hover:text-sidebar-foreground"
             )}
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {!collapsed && item.label}
-          </button>
+          </NavLink>
         ))}
       </nav>
 

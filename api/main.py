@@ -15,6 +15,7 @@ from api.routers import (
     system,
     ws,
     data,
+    actions,
 )
 
 
@@ -44,6 +45,7 @@ app.include_router(trading.router)
 app.include_router(model.router)
 app.include_router(system.router)
 app.include_router(data.router)
+app.include_router(actions.router)
 app.include_router(ws.router)  # WebSocket before static mount
 
 
