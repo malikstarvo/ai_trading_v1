@@ -79,24 +79,38 @@ func ComputeFeatures(candles []model.Candle, orderflow []model.OrderFlowSnapshot
 		liqLong := extractOFloats(orderflow, func(o model.OrderFlowSnapshot) float64 { return o.LiqLongUSD })
 		liqShort := extractOFloats(orderflow, func(o model.OrderFlowSnapshot) float64 { return o.LiqShortUSD })
 
-		oiDelta1 := OIDeltaPct(oi, 1)
-		oiDelta4 := OIDeltaPct(oi, 4)
-		oiDelta12 := OIDeltaPct(oi, 12)
-		oiZ30 := ZScore(oi, 30)
-		fundingZ30 := ZScore(funding, 30)
-		lsRaw := LSRatioRaw(buyRatio, sellRatio)
-		lsNorm := NormalizedImbalance(buyRatio, sellRatio)
-		liqImb := NormalizedImbalance(liqLong, liqShort)
+		hasOI := hasNonZero(oi)
+		hasLS := hasNonZero(buyRatio) && hasNonZero(sellRatio)
+
+		var oiDelta1, oiDelta4, oiDelta12, oiZ30, fundingZ30 []float64
+		var lsRaw, lsNorm, liqImb []float64
+
+		if hasOI {
+			oiDelta1 = OIDeltaPct(oi, 1)
+			oiDelta4 = OIDeltaPct(oi, 4)
+			oiDelta12 = OIDeltaPct(oi, 12)
+			oiZ30 = ZScore(oi, 30)
+		}
+		fundingZ30 = ZScore(funding, 30)
+		if hasLS {
+			lsRaw = LSRatioRaw(buyRatio, sellRatio)
+			lsNorm = NormalizedImbalance(buyRatio, sellRatio)
+		}
+		liqImb = NormalizedImbalance(liqLong, liqShort)
 
 		for i := 0; i < n; i++ {
-			rows[i].OIDelta1Pct = oiDelta1[i]
-			rows[i].OIDelta4Pct = oiDelta4[i]
-			rows[i].OIDelta12Pct = oiDelta12[i]
-			rows[i].OIZScore30 = oiZ30[i]
+			if hasOI {
+				rows[i].OIDelta1Pct = oiDelta1[i]
+				rows[i].OIDelta4Pct = oiDelta4[i]
+				rows[i].OIDelta12Pct = oiDelta12[i]
+				rows[i].OIZScore30 = oiZ30[i]
+			}
 			rows[i].FundingRate = funding[i]
 			rows[i].FundingZScore30 = fundingZ30[i]
-			rows[i].LSRatioRaw = lsRaw[i]
-			rows[i].LSRatioNormalized = lsNorm[i]
+			if hasLS {
+				rows[i].LSRatioRaw = lsRaw[i]
+				rows[i].LSRatioNormalized = lsNorm[i]
+			}
 			rows[i].LiqLongUSD = liqLong[i]
 			rows[i].LiqShortUSD = liqShort[i]
 			rows[i].LiqImbalance = liqImb[i]
@@ -120,4 +134,13 @@ func extractOFloats(snapshots []model.OrderFlowSnapshot, fn func(model.OrderFlow
 		result[i] = fn(s)
 	}
 	return result
+}
+
+func hasNonZero(values []float64) bool {
+	for _, v := range values {
+		if v != 0 {
+			return true
+		}
+	}
+	return false
 }

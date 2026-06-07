@@ -155,6 +155,12 @@ func (s *Service) buildTopics() []string {
 }
 
 func (s *Service) runPoller(ctx context.Context, p poll.Poller) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in poller", "poller", p.Name(), "recover", r)
+		}
+	}()
+
 	ticker := time.NewTicker(p.Interval())
 	defer ticker.Stop()
 
@@ -179,6 +185,12 @@ func (s *Service) runPoller(ctx context.Context, p poll.Poller) {
 }
 
 func (s *Service) heartbeatLoop(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.log.Error("panic in heartbeatLoop", "recover", r)
+		}
+	}()
+
 	heartbeatTicker := time.NewTicker(30 * time.Second)
 	statsTicker := time.NewTicker(5 * time.Minute)
 	defer heartbeatTicker.Stop()

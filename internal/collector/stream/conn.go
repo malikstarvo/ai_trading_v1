@@ -110,6 +110,7 @@ func (c *WSConn) ReadMessage() ([]byte, error) {
 	if conn == nil {
 		return nil, ErrNotConnected
 	}
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	_, msg, err := conn.ReadMessage()
 	return msg, err
 }

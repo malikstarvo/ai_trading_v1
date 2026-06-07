@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"log/slog"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -10,33 +11,35 @@ import (
 )
 
 type Manager struct {
-	conn             Conn
-	handlers         *Handlers
-	metrics          *metrics.CollectorMetrics
-	logger           *slog.Logger
-	mu               sync.Mutex
-	running          bool
-	cancel           context.CancelFunc
-	disconnectedCh   chan struct{}
-	topics           []string
-	lastMessageTime  map[string]time.Time
-	lastMessageMu    sync.RWMutex
-	pingInterval     time.Duration
-	reconnectBase    time.Duration
-	reconnectMax     time.Duration
+	conn              Conn
+	handlers          *Handlers
+	metrics           *metrics.CollectorMetrics
+	logger            *slog.Logger
+	mu                sync.Mutex
+	running           bool
+	cancel            context.CancelFunc
+	disconnectedCh    chan struct{}
+	topics            []string
+	lastMessageTime   map[string]time.Time
+	lastMessageMu     sync.RWMutex
+	pingInterval      time.Duration
+	reconnectBase     time.Duration
+	reconnectMax      time.Duration
+	maxSilentInterval time.Duration
 }
 
 func NewManager(conn Conn, handlers *Handlers, m *metrics.CollectorMetrics, logger *slog.Logger) *Manager {
 	return &Manager{
-		conn:            conn,
-		handlers:        handlers,
-		metrics:         m,
-		logger:          logger.With("module", "ws_manager"),
-		disconnectedCh:  make(chan struct{}, 1),
-		lastMessageTime: make(map[string]time.Time),
-		pingInterval:    20 * time.Second,
-		reconnectBase:   time.Second,
-		reconnectMax:    30 * time.Second,
+		conn:              conn,
+		handlers:          handlers,
+		metrics:           m,
+		logger:            logger.With("module", "ws_manager"),
+		disconnectedCh:    make(chan struct{}, 1),
+		lastMessageTime:   make(map[string]time.Time),
+		pingInterval:      20 * time.Second,
+		reconnectBase:     time.Second,
+		reconnectMax:      30 * time.Second,
+		maxSilentInterval: 180 * time.Second,
 	}
 }
 
@@ -53,6 +56,7 @@ func (m *Manager) Start(ctx context.Context, topics []string) error {
 	m.mu.Unlock()
 
 	go m.run(ctx)
+	go m.watchdog(ctx)
 	return nil
 }
 
@@ -102,6 +106,16 @@ func (m *Manager) connect(ctx context.Context) error {
 }
 
 func (m *Manager) readLoop(ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Error("panic in readLoop", "recover", r)
+			if m.metrics != nil {
+				m.metrics.ErrorsTotal.WithLabelValues("ws_panic").Inc()
+			}
+			m.triggerDisconnect()
+		}
+	}()
+
 	pingTicker := time.NewTicker(m.pingInterval)
 	defer pingTicker.Stop()
 
@@ -149,11 +163,13 @@ func (m *Manager) triggerDisconnect() {
 func (m *Manager) waitRetry(ctx context.Context) bool {
 	backoff := m.reconnectBase
 	for attempt := 0; ; attempt++ {
-		m.logger.Info("reconnecting", "attempt", attempt+1, "backoff", backoff)
+		jitter := time.Duration(rand.Int63n(int64(backoff / 4)))
+		wait := backoff + jitter
+		m.logger.Info("reconnecting", "attempt", attempt+1, "backoff", wait)
 		select {
 		case <-ctx.Done():
 			return false
-		case <-time.After(backoff):
+		case <-time.After(wait):
 		}
 		if m.conn.IsConnected() {
 			_ = m.conn.Close()
@@ -186,4 +202,31 @@ func (m *Manager) LastMessageAge(topic string) time.Duration {
 		return time.Duration(0)
 	}
 	return time.Since(t)
+}
+
+func (m *Manager) watchdog(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		if !m.conn.IsConnected() {
+			continue
+		}
+		for _, topic := range m.topics {
+			age := m.LastMessageAge(topic)
+			if age > m.maxSilentInterval {
+				m.logger.Warn("topic silent too long, triggering reconnect",
+					"topic", topic, "age", age.Round(time.Second))
+				if m.metrics != nil {
+					m.metrics.ErrorsTotal.WithLabelValues("ws_stale").Inc()
+				}
+				m.triggerDisconnect()
+				break
+			}
+		}
+	}
 }
