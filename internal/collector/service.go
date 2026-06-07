@@ -62,7 +62,7 @@ func NewService(
 	wsConn := stream.NewWSConn(cfg.WSURL, log, cfg.InsecureSkipVerify, cfg.ProxyURL)
 	mgr := stream.NewManager(wsConn, handlers, m, log)
 
-	bf := poll.NewBackfill(bybitClient, cfg.Symbols, candleStore, cfg.BackfillDays, log)
+	bf := poll.NewBackfill(bybitClient, cfg.Symbols, candleStore, orderFlowStore, cfg.BackfillDays, log)
 	lsPoller := poll.NewLSRatioPoller(bybitClient, cfg.Symbols, orderFlowStore, validator, m, log)
 
 	detector := recovery.NewDetector(candleStore, bybitClient, cfg.Symbols, m, log, cfg.Recovery.GapBars)
@@ -105,6 +105,9 @@ func (s *Service) Start(ctx context.Context) error {
 	// 1. Backfill historical data (non-fatal)
 	if err := s.backfill.Run(ctx); err != nil {
 		s.log.Warn("backfill failed (continuing)", "error", err)
+	}
+	if err := s.backfill.RunFundingRateBackfill(ctx); err != nil {
+		s.log.Warn("funding rate backfill failed (continuing)", "error", err)
 	}
 
 	// 2. Start WebSocket stream

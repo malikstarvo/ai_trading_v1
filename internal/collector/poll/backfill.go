@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,18 +20,19 @@ const maxRetries = 3
 const batchSize = 1000
 
 type Backfill struct {
-	client      *bybit.Client
-	symbols     []string
-	timeframes  []struct {
-		Name           string
-		BybitInterval  string
+	client         *bybit.Client
+	symbols        []string
+	timeframes     []struct {
+		Name          string
+		BybitInterval string
 	}
-	store       store.CandleStore
-	logger      *slog.Logger
-	daysHistory int
+	candleStore    store.CandleStore
+	orderFlowStore store.OrderFlowStore
+	logger         *slog.Logger
+	daysHistory    int
 }
 
-func NewBackfill(client *bybit.Client, symbols []string, candleStore store.CandleStore, daysHistory int, logger *slog.Logger) *Backfill {
+func NewBackfill(client *bybit.Client, symbols []string, candleStore store.CandleStore, orderFlowStore store.OrderFlowStore, daysHistory int, logger *slog.Logger) *Backfill {
 	return &Backfill{
 		client:      client,
 		symbols:     symbols,
@@ -41,9 +43,10 @@ func NewBackfill(client *bybit.Client, symbols []string, candleStore store.Candl
 			{Name: "15m", BybitInterval: "15"},
 			{Name: "1h", BybitInterval: "60"},
 		},
-		store:       candleStore,
-		logger:      logger.With("module", "backfill"),
-		daysHistory: daysHistory,
+		candleStore:    candleStore,
+		orderFlowStore: orderFlowStore,
+		logger:         logger.With("module", "backfill"),
+		daysHistory:    daysHistory,
 	}
 }
 
@@ -71,6 +74,55 @@ func (b *Backfill) Run(ctx context.Context) error {
 	}
 	wg.Wait()
 	return nil
+}
+
+func (b *Backfill) RunFundingRateBackfill(ctx context.Context) error {
+	end := time.Now()
+	start := end.AddDate(0, 0, -b.daysHistory)
+	for _, symbol := range b.symbols {
+		b.logger.Info("backfilling funding rates", "symbol", symbol, "from", start)
+		if err := b.backfillFundingRates(ctx, symbol, start, end); err != nil {
+			b.logger.Error("funding rate backfill failed", "symbol", symbol, "error", err)
+		}
+	}
+	return nil
+}
+
+func (b *Backfill) backfillFundingRates(ctx context.Context, symbol string, from, to time.Time) error {
+	start := from.UnixMilli()
+	end := to.UnixMilli()
+	total := 0
+	for {
+		resp, err := b.client.GetFundingRateHistory(ctx, symbol, start, end, 200)
+		if err != nil {
+			return fmt.Errorf("fetch funding %s: %w", symbol, err)
+		}
+		if len(resp.List) == 0 {
+			break
+		}
+		for _, item := range resp.List {
+			fr := mapper.RestToFundingRate(item)
+			fr.Symbol = symbol
+			if err := b.orderFlowStore.InsertFundingRate(ctx, &fr); err != nil {
+				b.logger.Warn("insert funding rate", "symbol", symbol, "time", fr.Time, "error", err)
+			}
+			total++
+		}
+		end = parseInt64(resp.List[len(resp.List)-1].FundingTime) - 1
+		if end <= start || len(resp.List) < 200 {
+			break
+		}
+		if total%1000 == 0 {
+			b.logger.Info("funding rate backfill progress", "symbol", symbol, "total", total)
+		}
+	}
+	b.logger.Info("funding rate backfill complete", "symbol", symbol, "total_records", total)
+	return nil
+}
+
+func parseInt64(s string) int64 {
+	n, _ := strconv.ParseInt(s, 10, 64)
+	return n
 }
 
 func (b *Backfill) backfillSymbol(ctx context.Context, symbol, timeframe, bybitInterval string) error {
@@ -122,7 +174,7 @@ func (b *Backfill) backfillSymbol(ctx context.Context, symbol, timeframe, bybitI
 		sort.Slice(candles, func(i, j int) bool {
 			return candles[i].Time.Before(candles[j].Time)
 		})
-		if err := b.store.InsertBatch(ctx, candles); err != nil {
+		if err := b.candleStore.InsertBatch(ctx, candles); err != nil {
 			return fmt.Errorf("store %s %s: %w", symbol, timeframe, err)
 		}
 		total += len(candles)
