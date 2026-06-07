@@ -1,3 +1,5 @@
 *.exe
 scripts/xgb_meta/venv/
 scripts/xgb_meta/models/
+web/dist/
+web/node_modules/
