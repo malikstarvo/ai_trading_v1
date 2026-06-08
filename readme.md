@@ -237,17 +237,67 @@ sudo systemctl start cloudflared-tunnel
 0 4 * * 0 /home/ubuntu/ai_trading_v1/scripts/run-xgb-retrain.sh
 ```
 
-### Updating Frontend
+### Updating Frontend (Web UI)
+
+**Prerequisites:** Node.js 20+ & npm, Docker & Docker Compose.
+
+The API serves the React build from `web/dist/` via `StaticFiles` mount (`api/main.py:59`). The dist files are copied into the Docker image at build time (`docker/api.Dockerfile:9`).
+
+#### Method 1: Rebuild API Docker Image (Recommended)
+
+Survives container restarts — the new frontend is embedded in the image.
+
+```bash
+# 1. Build React app
+cd web
+npm install          # first time only
+npm run build        # outputs to web/dist/
+
+# 2. Rebuild & restart API container
+cd ..
+docker compose build --no-cache api
+docker compose up -d api
+
+# 3. Verify
+curl -s http://localhost:8000/ | head -5
+```
+
+#### Method 2: Push to VPS
+
+Build locally, upload dist to VPS, rebuild there.
 
 ```bash
 # Build locally
 cd web && npm run build
 
-# Copy to VPS
-scp -r web/dist ubuntu@<vps>:/home/ubuntu/ai_trading_v1/web/
-ssh ubuntu@<vps> "docker cp /home/ubuntu/ai_trading_v1/web/dist <api-container>:/app/web/"
+# Upload to VPS and rebuild
+scp -r web/dist ubuntu@43.159.56.168:/home/ubuntu/ai_trading_v1/web/
+ssh ubuntu@43.159.56.168 \
+  "cd ~/ai_trading_v1 && docker compose build --no-cache api && docker compose up -d api"
+```
 
-# Or git push + pull on VPS
+#### Method 3: Local Dev with Hot Reload
+
+No Docker needed for the frontend. Vite proxies `/api` requests to the backend.
+
+```bash
+# Terminal 1: Start backend
+DATABASE_URL=postgresql://trader:trader_pass@localhost:5432/ai_trading \
+  uvicorn api.main:app --port 8000 --reload
+
+# Terminal 2: Start frontend dev server
+cd web && npm run dev   # → http://localhost:5173 (proxies /api to :8000)
+```
+
+#### Pre-built Artifact in Repo
+
+After building the frontend, commit `web/dist/` so it can be deployed from git:
+
+```bash
+cd web && npm run build
+git add web/dist/
+git commit -m "Update web UI build"
+git push
 ```
 
 ## Feature Set (V1)
