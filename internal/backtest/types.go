@@ -6,6 +6,13 @@ import (
 	"github.com/avav/ai_trading_v1/internal/agent/tradegate"
 )
 
+type Direction string
+
+const (
+	DirLong  Direction = "long"
+	DirShort Direction = "short"
+)
+
 type Config struct {
 	Symbol         string
 	Timeframe      string
@@ -18,7 +25,10 @@ type Config struct {
 	Direction      string
 	ATRMultiplier  float64
 	WarmupBars     int
+	LongThreshold  float64
+	ShortThreshold float64
 	GateConfig     tradegate.GateConfig
+	MLAPIURL       string
 }
 
 func DefaultConfig() Config {
@@ -27,17 +37,20 @@ func DefaultConfig() Config {
 		Commission:     0.001,
 		Slippage:       0.0005,
 		HoldingBars:    4,
-		Direction:      "long",
+		Direction:      "both",
 		ATRMultiplier:  2.0,
 		WarmupBars:     200,
+		LongThreshold:  60.0,
+		ShortThreshold: 40.0,
 		GateConfig:     tradegate.DefaultConfig(),
+		MLAPIURL:       "",
 	}
 }
 
 type Trade struct {
 	EntryTime   time.Time
 	ExitTime    time.Time
-	Direction   string
+	Direction   Direction
 	EntryPrice  float64
 	ExitPrice   float64
 	Size        float64
@@ -52,6 +65,16 @@ type Trade struct {
 	Confidence     float64
 	RegimeLabel    string
 	StopPrice      float64
+}
+
+func decideDir(techScore float64, longThreshold, shortThreshold float64) Direction {
+	if techScore >= longThreshold {
+		return DirLong
+	}
+	if techScore <= shortThreshold {
+		return DirShort
+	}
+	return ""
 }
 
 type Metrics struct {
@@ -94,6 +117,7 @@ type pendingInfo struct {
 	entryPrice  float64
 	stopPrice   float64
 	size        float64
+	direction   Direction
 	techScore   float64
 	ofScore     float64
 	regimeScore float64

@@ -47,6 +47,7 @@ func main() {
 		LongThreshold:       getEnvFloat("PAPER_LONG_THRESHOLD", 60.0),
 		ShortThreshold:      getEnvFloat("PAPER_SHORT_THRESHOLD", 40.0),
 		GateConfig:          tradegate.DefaultConfig(),
+		MLAPIURL:            getEnv("PAPER_ML_API_URL", ""),
 	}
 	engineCfg.GateConfig.StartingCapital = engineCfg.InitialCapital
 

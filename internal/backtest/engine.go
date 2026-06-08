@@ -1,8 +1,14 @@
 package backtest
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"math"
+	"net/http"
+	"time"
 
 	"github.com/avav/ai_trading_v1/internal/agent/orderflow"
 	"github.com/avav/ai_trading_v1/internal/agent/regime"
@@ -36,6 +42,8 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 				i, candles[i].Time, features[i].Ts)
 		}
 	}
+
+	mlProbs := e.prefetchMLProbs(candles)
 
 	gate := tradegate.New(e.cfg.GateConfig)
 	totalLiveBars := len(candles) - e.cfg.WarmupBars
@@ -81,23 +89,43 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 			Volatility: f.Volatility14,
 		})
 
+		mlProb := 1.0
+		if mlProbs != nil {
+			if p, ok := mlProbs[c.Time]; ok {
+				mlProb = p
+			}
+		}
+
 		gateInput := tradegate.Input{
 			TechnicalScore:    techOut.TechnicalScore,
 			OrderFlowScore:    ofOut.OrderFlowScore,
 			RegimeScore:       regimeOut.RegimeScore,
 			RegimeLabel:       regimeOut.Regime,
-			MetaModelProb:     1.0,
+			MetaModelProb:     mlProb,
 		}
 		decision := gate.Evaluate(gateInput)
 
-		// Signal at bar i → schedule entry at bar i+1
+		// Signal at bar i → decide direction and schedule entry at bar i+1
+		dir := decideDir(techOut.TechnicalScore, e.cfg.LongThreshold, e.cfg.ShortThreshold)
 		if decision.Decision != tradegate.NoTrade && position == nil && pendingBar < 0 && i < len(candles)-1 {
-			entryPrice := candles[i+1].Open * (1 + e.cfg.Slippage)
+			// Direction filter
+			switch e.cfg.Direction {
+			case "long":
+				if dir != DirLong {
+					continue
+				}
+			case "short":
+				if dir != DirShort {
+					continue
+				}
+			}
+
+			entryPrice := entryPriceForDir(candles[i+1].Open, dir, e.cfg.Slippage)
 			atr := f.ATR14
 			if atr <= 0 {
 				atr = entryPrice * 0.01
 			}
-			stopPrice := entryPrice * (1 - e.cfg.ATRMultiplier*atr/entryPrice)
+			stopPrice := stopPriceForDir(entryPrice, dir, atr, e.cfg.ATRMultiplier)
 
 			sizeFrac := decision.SizeMultiplier
 			if sizeFrac <= 0 {
@@ -111,6 +139,7 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 				entryPrice:  entryPrice,
 				stopPrice:   stopPrice,
 				size:        positionSize,
+				direction:   dir,
 				techScore:   techOut.TechnicalScore,
 				ofScore:     ofOut.OrderFlowScore,
 				regimeScore: regimeOut.RegimeScore,
@@ -124,7 +153,7 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 		if position == nil && pending != nil && i == pending.entryBar {
 			position = &Trade{
 				EntryTime:    c.Time,
-				Direction:    "long",
+				Direction:    pending.direction,
 				EntryPrice:   pending.entryPrice,
 				Size:         pending.size,
 				StopPrice:    pending.stopPrice,
@@ -145,15 +174,16 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 			position.HoldingBars = barsHeld
 
 			closed := false
-			// Check stop loss
-			if c.Low <= position.StopPrice {
+			// Check stop loss (direction-aware)
+			if (position.Direction == DirLong && c.Low <= position.StopPrice) ||
+				(position.Direction == DirShort && c.High >= position.StopPrice) {
 				position.ExitPrice = position.StopPrice
 				position.ExitTime = c.Time
 				position.ExitReason = "stop"
 				closed = true
 			} else if barsHeld >= e.cfg.HoldingBars {
-				// Exit at close when holding period reached
-				position.ExitPrice = c.Close * (1 - e.cfg.Slippage)
+				// Exit at close when holding period reached (direction-aware)
+				position.ExitPrice = exitPriceForDir(c.Close, position.Direction, e.cfg.Slippage)
 				position.ExitTime = c.Time
 				position.ExitReason = "expiry"
 				closed = true
@@ -172,11 +202,17 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 
 		gate.OnBar()
 
-		// Record equity at end of bar
+		// Record equity at end of bar (direction-aware unrealized PnL)
 		equity := e.cfg.InitialCapital + cumulativePnL
 		if position != nil {
-			unrealized := (c.Close - position.EntryPrice) / position.EntryPrice * position.Size
-			equity += unrealized
+			var upnl float64
+			switch position.Direction {
+			case DirLong:
+				upnl = (c.Close - position.EntryPrice) / position.EntryPrice * position.Size
+			case DirShort:
+				upnl = (position.EntryPrice - c.Close) / position.EntryPrice * position.Size
+			}
+			equity += upnl
 		}
 		equityCurve = append(equityCurve, equity)
 	}
@@ -184,7 +220,7 @@ func (e *Engine) Run(candles []model.Candle, features []model.FeatureRow) (*Summ
 	// Force close remaining position at last candle
 	if position != nil {
 		last := candles[len(candles)-1]
-		position.ExitPrice = last.Close * (1 - e.cfg.Slippage)
+		position.ExitPrice = exitPriceForDir(last.Close, position.Direction, e.cfg.Slippage)
 		position.ExitTime = last.Time
 		position.ExitReason = "end_of_data"
 		totalFees += closeTrade(position, e.cfg)
@@ -207,7 +243,13 @@ func closeTrade(t *Trade, cfg Config) float64 {
 	if t.ExitPrice <= 0 || t.EntryPrice <= 0 {
 		return 0
 	}
-	grossPnl := (t.ExitPrice - t.EntryPrice) / t.EntryPrice * t.Size
+	var grossPnl float64
+	switch t.Direction {
+	case DirLong:
+		grossPnl = (t.ExitPrice - t.EntryPrice) / t.EntryPrice * t.Size
+	case DirShort:
+		grossPnl = (t.EntryPrice - t.ExitPrice) / t.EntryPrice * t.Size
+	}
 	entryFee := t.Size * cfg.Commission
 	exitFee := t.ExitPrice / t.EntryPrice * t.Size * cfg.Commission
 	fee := entryFee + exitFee
@@ -219,4 +261,91 @@ func closeTrade(t *Trade, cfg Config) float64 {
 		fee = 0
 	}
 	return fee
+}
+
+func entryPriceForDir(refPrice float64, dir Direction, slippage float64) float64 {
+	switch dir {
+	case DirLong:
+		return refPrice * (1 + slippage)
+	case DirShort:
+		return refPrice * (1 - slippage)
+	default:
+		return refPrice * (1 + slippage)
+	}
+}
+
+func exitPriceForDir(refPrice float64, dir Direction, slippage float64) float64 {
+	switch dir {
+	case DirLong:
+		return refPrice * (1 - slippage)
+	case DirShort:
+		return refPrice * (1 + slippage)
+	default:
+		return refPrice * (1 - slippage)
+	}
+}
+
+func stopPriceForDir(entryPrice float64, dir Direction, atr float64, atrMultiplier float64) float64 {
+	switch dir {
+	case DirLong:
+		return entryPrice * (1 - atrMultiplier*atr/entryPrice)
+	case DirShort:
+		return entryPrice * (1 + atrMultiplier*atr/entryPrice)
+	default:
+		return entryPrice * (1 - atrMultiplier*atr/entryPrice)
+	}
+}
+
+func (e *Engine) prefetchMLProbs(candles []model.Candle) map[time.Time]float64 {
+	if e.cfg.MLAPIURL == "" {
+		return nil
+	}
+
+	// Collect live bar timestamps
+	tss := make([]string, 0, len(candles)-e.cfg.WarmupBars)
+	for i := e.cfg.WarmupBars; i < len(candles); i++ {
+		tss = append(tss, candles[i].Time.Format(time.RFC3339))
+	}
+
+	body := map[string]interface{}{
+		"timestamps": tss,
+		"horizon":    4,
+		"symbol":     e.cfg.Symbol,
+		"timeframe":  e.cfg.Timeframe,
+	}
+	data, _ := json.Marshal(body)
+
+	url := fmt.Sprintf("%s/api/model/predict-batch", e.cfg.MLAPIURL)
+	resp, err := http.Post(url, "application/json", bytes.NewReader(data))
+	if err != nil {
+		log.Printf("[Backtest] ML batch predict error: %v", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[Backtest] ML batch read error: %v", err)
+		return nil
+	}
+
+	var result struct {
+		Results []struct {
+			TS   string  `json:"ts"`
+			Prob float64 `json:"prob"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		log.Printf("[Backtest] ML batch parse error: %v", err)
+		return nil
+	}
+
+	probs := make(map[time.Time]float64, len(result.Results))
+	for _, r := range result.Results {
+		ts, err := time.Parse(time.RFC3339, r.TS)
+		if err == nil {
+			probs[ts] = r.Prob
+		}
+	}
+	return probs
 }

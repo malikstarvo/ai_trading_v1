@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"net/http"
 	"time"
 
 	"github.com/avav/ai_trading_v1/internal/agent/orderflow"
@@ -144,12 +146,13 @@ func (e *PaperEngine) processTick(ctx context.Context) {
 		return
 	}
 
+	mlProb := e.fetchMLProb(candle.Time)
 	gateInput := tradegate.Input{
 		TechnicalScore: techScore.TechnicalScore,
 		OrderFlowScore: ofScore.OrderFlowScore,
 		RegimeScore:    regScore.RegimeScore,
 		RegimeLabel:    regScore.Regime,
-		MetaModelProb:  1.0,
+		MetaModelProb:  mlProb,
 	}
 	gOut := e.gate.Evaluate(gateInput)
 	if gOut.Decision == tradegate.NoTrade {
@@ -476,6 +479,33 @@ func (e *PaperEngine) loadFeaturesAt(ctx context.Context, ts time.Time) (*model.
 		log.Printf("[PaperEngine] stale features: %v behind candle", staleness)
 	}
 	return best, nil
+}
+
+func (e *PaperEngine) fetchMLProb(ts time.Time) float64 {
+	if e.cfg.MLAPIURL == "" {
+		return 1.0
+	}
+	url := fmt.Sprintf("%s/api/model/predict?ts=%s&horizon=4&symbol=%s&timeframe=%s",
+		e.cfg.MLAPIURL, ts.Format(time.RFC3339), e.cfg.Symbol, e.cfg.Timeframe)
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("[PaperEngine] ML predict HTTP error: %v", err)
+		return 1.0
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[PaperEngine] ML predict read error: %v", err)
+		return 1.0
+	}
+	var result struct {
+		Prob float64 `json:"prob"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		log.Printf("[PaperEngine] ML predict parse error: %v", err)
+		return 1.0
+	}
+	return result.Prob
 }
 
 func (e *PaperEngine) positionOpen() bool {

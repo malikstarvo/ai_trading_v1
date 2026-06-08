@@ -33,6 +33,10 @@ func main() {
 	holdingBars := getEnvInt("BACKTEST_HOLDING_BARS", 4)
 	warmupBars := getEnvInt("BACKTEST_WARMUP_BARS", 200)
 	initialCapital := getEnvFloat("BACKTEST_INITIAL_CAPITAL", 10000)
+	direction := getEnv("BACKTEST_DIRECTION", "both")
+	longThreshold := getEnvFloat("BACKTEST_LONG_THRESHOLD", 60.0)
+	shortThreshold := getEnvFloat("BACKTEST_SHORT_THRESHOLD", 40.0)
+	mlAPIURL := getEnv("BACKTEST_ML_API_URL", "")
 
 	featureSetID, err := store.EnsureDefaultFeatureSet(ctx)
 	if err != nil {
@@ -73,15 +77,18 @@ func main() {
 		Commission:     0.001,
 		Slippage:       0.0005,
 		HoldingBars:    holdingBars,
-		Direction:      "long",
+		Direction:      direction,
 		ATRMultiplier:  2.0,
 		WarmupBars:     warmupBars,
+		LongThreshold:  longThreshold,
+		ShortThreshold: shortThreshold,
 		GateConfig:     backtest.DefaultConfig().GateConfig,
+		MLAPIURL:       mlAPIURL,
 	}
 
 	engine := backtest.New(btCfg)
-	log.Printf("Running backtest: %s %s, holding=%d, warmup=%d, capital=%.0f",
-		symbol, timeframe, holdingBars, warmupBars, initialCapital)
+	log.Printf("Running backtest: %s %s, dir=%s, holding=%d, warmup=%d, capital=%.0f, ml=%s",
+		symbol, timeframe, direction, holdingBars, warmupBars, initialCapital, mlAPIURL)
 
 	start := time.Now()
 	summary, err := engine.Run(candles, features)

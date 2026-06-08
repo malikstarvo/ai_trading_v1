@@ -54,6 +54,7 @@ type EngineConfig struct {
 	LongThreshold        float64
 	ShortThreshold       float64
 	GateConfig           tradegate.GateConfig
+	MLAPIURL             string
 }
 
 func DefaultConfig() EngineConfig {
@@ -72,6 +73,7 @@ func DefaultConfig() EngineConfig {
 		LongThreshold:       60.0,
 		ShortThreshold:      40.0,
 		GateConfig:          tradegate.DefaultConfig(),
+		MLAPIURL:            "",
 	}
 }
 

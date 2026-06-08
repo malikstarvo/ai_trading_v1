@@ -24,16 +24,16 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "test -f /proc/1/fd/1 && ps aux | grep -v grep | grep /trader || exit 1"]
+      test: ["CMD-SHELL", "test -f /proc/1/cmdline || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     environment:
       - COLLECTOR_WS_URL=${COLLECTOR_WS_URL:-wss://stream.bybit.com/v5/public/linear}
       - COLLECTOR_REST_URL=${COLLECTOR_REST_URL:-https://api.bybit.com}
       - COLLECTOR_SYMBOLS=${COLLECTOR_SYMBOLS:-BTCUSDT,ETHUSDT,SOLUSDT}
-      - COLLECTOR_TESTNET=${COLLECTOR_TESTNET:-true}
+      - COLLECTOR_TESTNET=${COLLECTOR_TESTNET:-false}
       - COLLECTOR_BACKFILL_DAYS=${COLLECTOR_BACKFILL_DAYS:-90}
       - DB_HOST=postgres
       - DB_PORT=5432
